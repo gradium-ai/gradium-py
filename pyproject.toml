@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Gradium AI", email = "contact@gradium.ai" }]
+keywords = ["gradium", "voice", "ai", "tts", "stt", "api", "streaming"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -18,7 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["aiohttp", "numpy"]
+dependencies = ["aiohttp>=3.8.0", "numpy>=1.20.0"]
+
+[project.urls]
+Homepage = "https://gradium.ai"
+Repository = "https://github.com/gradium/gradium-py"
+"Bug Tracker" = "https://github.com/gradium/gradium-py/issues"
+Documentation = "https://docs.gradium.ai"
 
 [project.optional-dependencies]
 dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio"]
