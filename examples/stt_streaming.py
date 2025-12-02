@@ -1,12 +1,4 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#    "aiohttp",
-#    "numpy",
-#    "sphn>=0.1.5",
-# ]
-# ///
-"""Test script for STT WebSocket API."""
+"""Example script for the Speech-to-Text API."""
 
 import argparse
 import asyncio
