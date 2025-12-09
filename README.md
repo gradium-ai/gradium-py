@@ -9,10 +9,16 @@ See the [examples/](examples/) directory for usage examples:
 - Text-to-Speech Streaming: `examples/tts_streaming.py`
 - Speech-to-Text Streaming: `examples/stt_streaming.py`
 
-You can also try it out in Google Colab:
+You can also try it out in Google Colab (EU server):
 <a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_eu.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
+
+Or for the US server:
+<a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_us.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
 
 ## Text-to-Speech Streaming Example
 
