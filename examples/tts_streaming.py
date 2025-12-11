@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import base64
-import sphn
 import time
 
 from gradium import client as gradium_client
@@ -102,11 +101,7 @@ async def run_one(args, id: int):
     filename = f"out-{id}.wav"
     with open(filename, "wb") as f:
         f.write(all_bytes)
-    pcm, sample_rate = sphn.read(filename)
-    audio_duration = len(pcm[0]) / sample_rate
-    print(
-        f"Total time: {total_time:.2f}s, rtf: {audio_duration / total_time:.2f}x"
-    )
+    print(f"Wrote {len(all_bytes)} bytes to {filename} in {total_time:.2f}s")
     print(f"Generated text: {' '.join(all_text)}")
 
 
