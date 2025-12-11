@@ -88,17 +88,14 @@ class TTSStream:
     Attributes:
         _stream: Underlying async message stream.
         _setup: TTS configuration used for this request.
-        _sample_rate: Sample rate of the audio output.
-        _request_id: Unique ID for this TTS request.
         _text_with_timestamps: Collected text segments with timing.
     """
 
     def __init__(
         self,
         stream: AsyncGenerator,
-        sample_rate: int | None,
-        request_id: str | None,
         setup: TTSSetup,
+        ready: Any,
     ):
         """Initialize TTSStream.
 
@@ -110,9 +107,18 @@ class TTSStream:
         """
         self._stream = stream
         self._setup = setup
-        self._sample_rate = sample_rate
-        self._request_id = request_id
         self._text_with_timestamps = []
+        self._ready = ready
+
+    @property
+    def sample_rate(self) -> int | None:
+        """Get the sample rate of the output audio."""
+        return self._ready.get("sample_rate")
+
+    @property
+    def request_id(self) -> str | None:
+        """Get the unique request ID."""
+        return self._ready.get("request_id")
 
     async def iter_bytes(self) -> AsyncGenerator[bytes]:
         """Stream audio chunks as bytes.
@@ -152,16 +158,6 @@ class TTSStream:
                 self._text_with_timestamps.append(twt)
             elif msg_type == "audio":
                 yield base64.b64decode(msg["audio"])
-
-    @property
-    def sample_rate(self) -> int | None:
-        """Get the sample rate of the output audio."""
-        return self._sample_rate
-
-    @property
-    def request_id(self) -> str | None:
-        """Get the unique request ID."""
-        return self._request_id
 
 
 @dataclass
@@ -218,6 +214,7 @@ async def tts_stream(
     client: "gradium_client.GradiumClient",
     setup: TTSSetup,
     text: str | list[str] | AsyncGenerator,
+    tts_endpoint: str = "speech/tts",
 ) -> TTSStream:
     """Stream Text-to-Speech synthesis results.
 
@@ -248,16 +245,12 @@ async def tts_stream(
             setup = dict(setup)
             setup["json_config"] = json.dumps(config)
 
-    stream = client.stream("speech/tts", setup, text, map_input_fn=format_text)
+    stream = client.stream(tts_endpoint, setup, text, map_input_fn=format_text)
     ready = await anext(stream)
     if (msg_type := ready.get("type")) != "ready":
         raise RuntimeError(f"unexpected first message type `{msg_type}`")
 
-    sample_rate = ready.get("sample_rate")
-    request_id = ready.get("request_id")
-    return TTSStream(
-        stream, sample_rate=sample_rate, request_id=request_id, setup=setup
-    )
+    return TTSStream(stream, setup=setup, ready=ready)
 
 
 async def tts(
@@ -302,22 +295,23 @@ class STTStream:
     Attributes:
         _stream: Underlying async message stream.
         _setup: STT configuration used for this request.
-        _request_id: Unique ID for this STT request.
     """
 
     def __init__(
-        self, stream: AsyncGenerator, setup: STTSetup, request_id: str | None
+        self,
+        stream: AsyncGenerator,
+        setup: STTSetup,
+        ready: Any,
     ):
         """Initialize STTStream.
 
         Args:
             stream: Async generator yielding STT messages.
             setup: STT configuration dictionary.
-            request_id: Unique request identifier.
         """
         self._stream = stream
         self._setup = setup
-        self._request_id = request_id
+        self._ready = ready
 
     async def iter_text(self) -> AsyncGenerator[TextWithTimestamps]:
         """Stream transcribed text segments.
@@ -360,7 +354,7 @@ class STTStream:
     @property
     def request_id(self) -> str | None:
         """Get the unique request ID."""
-        return self._request_id
+        return self._ready.get("request_id")
 
 
 @dataclass
@@ -385,6 +379,7 @@ async def stt_stream(
     client: "gradium_client.GradiumClient",
     setup: STTSetup,
     audio: AsyncGenerator,
+    stt_endpoint: str = "speech/asr",
 ) -> STTStream:
     """Stream Speech-to-Text transcription results.
 
@@ -431,12 +426,12 @@ async def stt_stream(
             setup["json_config"] = json.dumps(config)
 
     stream = client.stream(
-        "speech/asr", setup, audio, map_input_fn=format_audio
+        stt_endpoint, setup, audio, map_input_fn=format_audio
     )
     ready = await anext(stream)
     if ready.get("type") != "ready":
         raise RuntimeError(f"unexpected first message type {ready.get('type')}")
-    return STTStream(stream, setup=setup, request_id=ready.get("request_id"))
+    return STTStream(stream, setup=setup, ready=ready)
 
 
 async def stt(
