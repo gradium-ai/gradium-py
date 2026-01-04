@@ -8,7 +8,10 @@ Welcome to the Gradium Python Client documentation. This library provides a simp
    :caption: Contents:
 
    quickstart
+   api_doc
    api
+   rewriting_rules
+   websocket_protocols
 
 Features
 --------

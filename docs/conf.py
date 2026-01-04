@@ -67,6 +67,10 @@ myst_enable_extensions = [
     "substitution",
 ]
 
+# Configure MyST to use H1 headings as document titles
+myst_heading_anchors = 2
+myst_title_to_header = False
+
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
@@ -81,6 +85,19 @@ html_theme_options = {
     "light_logo": "logo-large.svg",
     "dark_logo": "logo-large.svg",
     "sidebar_hide_name": True,
+    "navigation_with_keys": True,
+}
+
+# Ensure the global toctree is shown on all pages
+html_sidebars = {
+    "**": [
+        "sidebar/brand.html",
+        "sidebar/search.html",
+        "sidebar/scroll-start.html",
+        "sidebar/navigation.html",
+        "sidebar/ethical-ads.html",
+        "sidebar/scroll-end.html",
+    ]
 }
 
 # -- Options for autodoc -----------------------------------------------------
