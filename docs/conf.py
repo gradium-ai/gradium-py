@@ -78,8 +78,8 @@ html_static_path = ["_static"]
 html_title = "Gradium Python Client"
 
 html_theme_options = {
-    "light_logo": "logo-light.png",
-    "dark_logo": "logo-dark.png",
+    "light_logo": "logo-large.svg",
+    "dark_logo": "logo-large.svg",
     "sidebar_hide_name": True,
 }
 
