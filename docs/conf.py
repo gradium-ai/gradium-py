@@ -72,7 +72,13 @@ myst_heading_anchors = 2
 myst_title_to_header = False
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "websocket_tts_description.md",
+    "websocket_stt_description.md",
+]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -86,18 +92,10 @@ html_theme_options = {
     "dark_logo": "logo-large.svg",
     "sidebar_hide_name": True,
     "navigation_with_keys": True,
-}
-
-# Ensure the global toctree is shown on all pages
-html_sidebars = {
-    "**": [
-        "sidebar/brand.html",
-        "sidebar/search.html",
-        "sidebar/scroll-start.html",
-        "sidebar/navigation.html",
-        "sidebar/ethical-ads.html",
-        "sidebar/scroll-end.html",
-    ]
+    # Configure global toctree to show subsections only when page is active
+    "globaltoc_collapse": True,
+    "globaltoc_includehidden": True,
+    "globaltoc_maxdepth": 3,
 }
 
 # -- Options for autodoc -----------------------------------------------------

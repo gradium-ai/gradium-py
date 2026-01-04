@@ -1,0 +1,9 @@
+{% if theme_globaltoc_collapse %}
+  {% set toctree_class = "globaltoc-collapse" %}
+{% else %}
+  {% set toctree_class = "" %}
+{% endif %}
+
+<div class="sidebar-tree {{ toctree_class }}">
+  {{ toctree(maxdepth=theme_globaltoc_maxdepth|toint, collapse=theme_globaltoc_collapse|tobool, includehidden=theme_globaltoc_includehidden|tobool, titles_only=False) }}
+</div>

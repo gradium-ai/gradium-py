@@ -4,7 +4,7 @@ Gradium Python Client Documentation
 Welcome to the Gradium Python Client documentation. This library provides a simple and async-first interface to interact with the Gradium API for speech synthesis, speech recognition, voice management, and usage tracking.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    quickstart

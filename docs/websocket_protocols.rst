@@ -8,8 +8,8 @@ Gradium provides WebSocket-based streaming protocols for low-latency real-time c
 * Voice Activity Detection (VAD) for turn-taking
 * Bidirectional communication with minimal latency
 
-.. toctree::
-   :maxdepth: 2
+.. include:: websocket_tts_description.md
+   :parser: myst_parser.sphinx_
 
-   websocket_tts_description
-   websocket_stt_description
+.. include:: websocket_stt_description.md
+   :parser: myst_parser.sphinx_
