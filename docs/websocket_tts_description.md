@@ -117,6 +117,23 @@ Send text messages to be converted to speech. You can send multiple text message
 - `type` (string): Will be "audio"
 - `audio` (string): Base64-encoded audio data in the requested format
 
+When using `"pcm"` output format, the audio will adhere to the following
+specifications:
+- **Sample Rate**: 48000 Hz (48kHz)
+- **Format**: PCM (Pulse Code Modulation)
+- **Bit Depth**: 16-bit signed integer
+- **Channels**: Single channel (mono)
+- **Chunk Size**: 3840 samples per chunk (80ms at 48kHz)
+
+When using the `"wav"` output format, the audio chunks are in WAV format,
+at 48kHz, 16-bit signed integer mono.
+
+When using the `"opus"` output format, the audio chunks use the Opus codec
+wrapped in an Ogg container.
+
+Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_16000"`, and
+`"pcm_24000"`.
+
 **Important:** Multiple audio messages will be streamed for each text message. Continue receiving until you detect the end of speech or receive a new message type.
 
 ---

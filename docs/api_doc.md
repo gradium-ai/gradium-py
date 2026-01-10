@@ -103,6 +103,12 @@ specifications:
 - **Channels**: Single channel (mono)
 - **Chunk Size**: 3840 samples per chunk (80ms at 48kHz)
 
+When using the `"wav"` output format, the audio chunks are in WAV format,
+at 48kHz, 16-bit signed integer mono.
+
+When using the `"opus"` output format, the audio chunks use the Opus codec
+wrapped in an Ogg container.
+
 Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_16000"`, and
 `"pcm_24000"`.
 
@@ -111,8 +117,6 @@ Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_16000"`, 
 
 The TTS can be used in a streaming fashion. The first chunks of audio will be
 available as soon as they are generated.
-When using the `"pcm"` output format, the audio chunks will be in raw PCM
-format sampled at 48kHz using 16-bit signed integer (little-endian) mono.
 
 ```python
 stream = await client.tts_stream(
@@ -658,6 +662,13 @@ specifications:
 - **Bit Depth**: 16-bit signed integer
 - **Channels**: Single channel (mono)
 - **Chunk Size**: Recommended 1920 samples per chunk (80ms at 24kHz)
+
+When using `"wav"` input format, the audio must be a valid WAV file using
+PCM data (so `AudioFormat` = 1 in the WAV header). Supported bits per sample
+are 16, 24 and 32 bits.
+
+When using `"opus"` input format, the audio must be some ogg wrapped opus data
+stream.
 
 ### Message Types
 

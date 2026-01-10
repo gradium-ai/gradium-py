@@ -113,6 +113,13 @@ This message is sent by the server after receiving the setup message, indicating
 - **Channels**: Single channel (mono)
 - **Chunk Size**: Recommended 1920 samples per frame (80ms at 24kHz)
 
+When using `"wav"` input format, the audio must be a valid WAV file using
+PCM data (so `AudioFormat` = 1 in the WAV header). Supported bits per sample
+are 16, 24 and 32 bits.
+
+When using `"opus"` input format, the audio must be some ogg wrapped opus data
+stream.
+
 Send audio messages to be transcribed. You can send multiple audio messages in sequence. The server will stream text and VAD responses as it processes the audio.
 
 ---
