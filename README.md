@@ -32,7 +32,7 @@ uv run --with sphn examples/tts_streaming.py \
 You can also try the speech-to-text streaming example:
 
 ```bash
-uv run --with sphn examples/tts_streaming.py \
+uv run --with sphn examples/stt_streaming.py \
     --audio test_file.mp3 \
     --api-key gsk_...
 ```
