@@ -129,7 +129,10 @@ async def update(
     data = {"name": name, "description": description, "start_s": start_s}
     data = {k: v for k, v in data.items() if v is not None}
     if data:
-        return await client.put(f"{ROUTE}{voice_uid}", data=data)
+        return await client.put(
+            f"{ROUTE}{voice_uid}",
+            json=data,
+        )
 
 
 async def delete(

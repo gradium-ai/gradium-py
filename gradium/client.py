@@ -248,9 +248,13 @@ class GradiumClient:
             response = await fn(url, **kwargs)
 
             if not response.ok:
-                msg = await response.json()
-                if (reason := msg.get("detail")) is not None:
-                    response.reason = reason
+                content_type = response.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    msg = await response.json()
+                    if (reason := msg.get("detail")) is not None:
+                        response.reason = reason
+                else:
+                    response.reason = await response.text()
             response.raise_for_status()
             return await response.json() if parse_response else response
 
