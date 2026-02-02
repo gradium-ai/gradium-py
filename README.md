@@ -27,6 +27,9 @@ uvx gradium tts "Hello world" --voice-id abc123 -o output.ogg
 # Speech-to-text
 uvx gradium stt audio.wav
 uvx gradium stt audio.wav --json  # outputs JSON with timestamps
+
+# To handle non-wav file, additional dependencies are required
+uvx --from 'gradium[cli]' gradium stt audio.mp3
 ```
 
 Run `uvx gradium --help` for all available options.
