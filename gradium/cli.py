@@ -23,12 +23,15 @@ def infer_format_from_filename(filename: str) -> str | None:
     elif filename.endswith(".pcm"):
         return "pcm"
     elif filename.endswith(".ogg"):
-        return "ogg"
+        return "opus"
     return None
 
 
 async def run_tts(args: argparse.Namespace) -> int:
     """Run text-to-speech conversion."""
+    if args.output is None:
+        raise ValueError("Output file must be specified for TTS command.")
+
     client = GradiumClient(
         base_url=args.gradium_base_url,
         api_key=args.api_key,
