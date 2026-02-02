@@ -72,8 +72,14 @@ async def run_stt(args: argparse.Namespace) -> int:
     if args.audio_file.endswith(".wav"):
         with open(args.audio_file, "rb") as f:
             audio_data = f.read()
+
+        async def audio_stream():
+            chunk_size = 4096
+            for i in range(0, len(audio_data), chunk_size):
+                yield audio_data[i : i + chunk_size]
+
         setup = {"input_format": "wav"}
-        result = await client.stt(setup, audio_data)
+        stream = await client.stt_stream(setup, audio_stream())
     else:
         try:
             import sphn
@@ -90,25 +96,31 @@ async def run_stt(args: argparse.Namespace) -> int:
         pcm, _ = sphn.read(args.audio_file, sample_rate=24000)
         # Convert to single channel int16 PCM
         pcm = (pcm[0] * 32768).astype(np.int16)
+
+        async def audio_stream():
+            chunk_size = 1920
+            for i in range(0, len(pcm), chunk_size):
+                yield pcm[i : i + chunk_size]
+
         setup = {"input_format": "pcm"}
-        result = await client.stt(setup, pcm, sample_rate=24000)
+        stream = await client.stt_stream(setup, audio_stream())
 
     if args.json:
-        output = {
-            "text": result.text,
-            "request_id": result.request_id,
-            "segments": [
-                {
-                    "text": seg.text,
-                    "start_s": seg.start_s,
-                    "stop_s": seg.stop_s,
-                }
-                for seg in result.text_with_timestamps
-            ],
-        }
-        print(json.dumps(output, indent=2))
+        segments = []
+        async for seg in stream.iter_text():
+            segment = {
+                "text": seg.text,
+                "start_s": seg.start_s,
+                "stop_s": seg.stop_s,
+            }
+            segments.append(segment)
+            print(json.dumps(segment), flush=True)
+        # Print summary at end
+        print(json.dumps({"request_id": stream.request_id}), flush=True)
     else:
-        print(result.text)
+        async for seg in stream.iter_text():
+            print(seg.text, end=" ", flush=True)
+        print()
 
     return 0
 
