@@ -31,6 +31,7 @@ Repository = "https://github.com/gradium/gradium-py"
 Documentation = "https://docs.gradium.ai"
 
 [project.optional-dependencies]
+cli = ["sphn"]
 dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio"]
 
 

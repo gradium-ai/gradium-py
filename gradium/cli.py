@@ -68,20 +68,30 @@ async def run_stt(args: argparse.Namespace) -> int:
         api_key=args.api_key,
     )
 
-    # Read audio file
-    with open(args.audio_file, "rb") as f:
-        audio_data = f.read()
+    # For .wav files, read directly; for other formats, use sphn
+    if args.audio_file.endswith(".wav"):
+        with open(args.audio_file, "rb") as f:
+            audio_data = f.read()
+        setup = {"input_format": "wav"}
+        result = await client.stt(setup, audio_data)
+    else:
+        try:
+            import sphn
+        except ImportError:
+            print(
+                "sphn is required for non-.wav files. "
+                "Install with: pip install gradium[cli]",
+                file=sys.stderr,
+            )
+            return 1
 
-    # Infer input format from filename
-    input_format = infer_format_from_filename(args.audio_file)
-    if input_format is None:
-        input_format = "wav"
+        import numpy as np
 
-    setup = {
-        "input_format": input_format,
-    }
-
-    result = await client.stt(setup, audio_data)
+        pcm, _ = sphn.read(args.audio_file, sample_rate=24000)
+        # Convert to single channel int16 PCM
+        pcm = (pcm[0] * 32768).astype(np.int16)
+        setup = {"input_format": "pcm"}
+        result = await client.stt(setup, pcm, sample_rate=24000)
 
     if args.json:
         output = {
