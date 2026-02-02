@@ -15,6 +15,22 @@ You can also try it out in Google Colab.
 - US server <a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_us.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 
+## Command Line Interface
+
+The package includes a CLI that can be run via `uvx gradium`:
+
+```bash
+# Text-to-speech
+uvx gradium tts "Hello world" -o output.wav
+uvx gradium tts "Hello world" --voice-id abc123 -o output.ogg
+
+# Speech-to-text
+uvx gradium stt audio.wav
+uvx gradium stt audio.wav --json  # outputs JSON with timestamps
+```
+
+Run `uvx gradium --help` for all available options.
+
 ## Text-to-Speech Streaming Example
 
 You can find some examples in the `examples/` directory. Try them out with

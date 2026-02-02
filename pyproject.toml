@@ -21,6 +21,9 @@ classifiers = [
 ]
 dependencies = ["aiohttp>=3.8.0", "numpy>=1.20.0"]
 
+[project.scripts]
+gradium = "gradium.cli:main"
+
 [project.urls]
 Homepage = "https://gradium.ai"
 Repository = "https://github.com/gradium/gradium-py"
@@ -28,6 +31,7 @@ Repository = "https://github.com/gradium/gradium-py"
 Documentation = "https://docs.gradium.ai"
 
 [project.optional-dependencies]
+cli = ["sphn"]
 dev = ["black", "ruff", "mypy", "pytest", "pytest-asyncio"]
 
 
