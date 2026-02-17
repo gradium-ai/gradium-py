@@ -109,8 +109,8 @@ at 48kHz, 16-bit signed integer mono.
 When using the `"opus"` output format, the audio chunks use the Opus codec
 wrapped in an Ogg container.
 
-Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_16000"`, and
-`"pcm_24000"`.
+Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_8000"`,
+`"pcm_16000"`, and `"pcm_24000"`.
 
 
 ### Streaming TTS
@@ -220,6 +220,81 @@ stream = await client.tts_stream(
 async for chunk in stream.iter_bytes():
     pass
 ```
+
+### Pronunciation Dictionaries
+
+Pronunciation dictionaries allow you to customize how specific words or phrases are pronounced in your TTS output. This is particularly useful for:
+- Brand names, technical terms, or proper nouns
+- Acronyms that should be pronounced in a specific way
+- Words with non-standard pronunciations in your use case
+
+
+The easiest way to create and manage pronunciation dictionaries is through the Gradium Studio, on the pronunciation page.
+Once you have created a dictionary and obtained its ID, you can use it in your TTS requests by passing the `pronunciation_id` parameter in the setup message, similar to the way we pass the voice_id:
+
+```python
+import gradium
+
+client = gradium.client.GradiumClient()
+
+result = await client.tts(
+    setup={
+        "voice_id": "YTpq7expH9539ERJ",
+        "output_format": "wav",
+        "pronunciation_id": "bb1ckYhNHCcIJjdK",  # Whatever your ID is.
+    },
+    text="The text you want to generate."
+)
+
+with open("output.wav", "wb") as f:
+    f.write(result.raw_data)
+```
+
+## Multiplexing
+
+Multiplexing allows you to send multiple independent TTS requests over a single WebSocket connection. Each request is tracked independently using a unique identifier, allowing concurrent processing of multiple text inputs without opening multiple connections.
+
+When multiplexing is enabled, each message you send to the server must include a `client_req_id` field. The server will stamp all response messages (audio chunks, metadata, etc.) with the same `client_req_id`, allowing you to match responses to their corresponding requests.
+
+To enable multiplexing, include `close_ws_on_eos: False` in your setup message. This tells the server to keep the WebSocket connection open after completing individual requests.
+
+```python
+setup = {
+    "voice_id": "RI2y7oBdsQJmkgFF",
+    "output_format": "wav",
+    "close_ws_on_eos": False  # Enable multiplexing
+}
+texts = [
+    "First request. Second part, last one.",
+    "Second request. Second part, last one again.",
+]
+
+client = gradium.client.GradiumClient(base_url=url, api_key=api_key)
+async with client.tts_realtime(send_setup_on_start=False) as stream:
+    
+    async def send_loop():
+        for idx, text in enumerate(texts):
+            stamp = {'client_req_id': f'req-{idx:02d}'}
+            await stream.send_setup(setup | stamp)
+            await stream.send_text(text, **stamp)
+            await stream.send_eos(**stamp)
+    
+    async def recv_loop():
+        audio = collections.defaultdict(list)
+        num_eos = 0
+        async for msg in stream:
+            if msg["type"] == "audio":
+                audio[msg.get('client_req_id')].append(msg["audio"])
+            elif msg['type'] == 'end_of_stream':
+                num_eos += 1
+                if num_eos == len(texts):
+                    break
+        return audio
+
+    _, audio = await asyncio.gather(send_loop(), recv_loop())
+    audio = {k: b"".join(v) for k, v in audio.items()}
+```
+
 
 ## Advanced Options
 

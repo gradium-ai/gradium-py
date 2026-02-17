@@ -27,8 +27,9 @@ Include your API key in the WebSocket connection header:
 |-----------|-------------|---------|
 | 🔵⬆️ Client→Server | Setup (first) | `{"type": "setup", "voice_id": "YTpq7expH9539ERJ", "model_name": "default", "output_format": "wav"}` |
 | 🟢⬇️ Server→Client | Ready | `{"type": "ready", "request_id": "uuid"}` |
-| 🔵⬆️ Client→Server | Text | `{"type": "text", "text": "Hello, world!"}` |
+| 🔵⬆️ Client→Server | Text (stream) | `{"type": "text", "text": "Hello, world!"}` |
 | 🟢⬇️ Server→Client | Audio (stream) | `{"type": "audio", "audio": "base64..."}` |
+| 🟢⬇️ Server→Client | Text (stream) | `{"type": "text", "text": "Hello", "start_s": 0.2, "stop_s": 0.6}` |
 | 🔵⬆️ Client→Server | EndOfStream | `{"type": "end_of_stream"}` |
 | 🟢⬇️ Server→Client | AEndOfStream | `{"type": "end_of_stream"}` |
 | 🔴⬇️ Server→Client | Error | `{"type": "error", "message": "Error description", "code": 1008}` |
@@ -131,14 +132,40 @@ at 48kHz, 16-bit signed integer mono.
 When using the `"opus"` output format, the audio chunks use the Opus codec
 wrapped in an Ogg container.
 
-Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_16000"`, and
-`"pcm_24000"`.
+Alternative output formats include `"ulaw_8000"`, `"alaw_8000"`, `"pcm_8000"`,
+`"pcm_16000"`, and `"pcm_24000"`.
 
 **Important:** Multiple audio messages will be streamed for each text message. Continue receiving until you detect the end of speech or receive a new message type.
 
 ---
 
-### 5. End Of Stream
+### 5. Text Response
+
+**Direction:** Server → Client
+**Format:** JSON Object
+
+```json
+{
+  "type": "text",
+  "text": "Hello",
+  "start_s": 0.2,
+  "stop_s": 0.6
+}
+```
+
+**Fields:**
+- `type` (string): Will be "text"
+- `text` (string): The portion of text that has been generated into speech
+- `start_s` (float): Start time in seconds of this text segment in the audio
+- `stop_s` (float): Stop time in seconds of this text segment in the audio
+
+The server sends text messages back to indicate which parts of the input text
+have been processed into speech as well as the associated timestamps in the
+audio stream.
+
+---
+
+### 6. End Of Stream
 
 **Direction:** Client → Server and Server → Client
 **Format:** JSON Object
