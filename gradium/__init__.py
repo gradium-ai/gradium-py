@@ -27,7 +27,7 @@ Example:
     >>> asyncio.run(main())
 """
 
-from . import speech, usages, voices
+from . import speech, usages, voices, stream
 from .client import GradiumClient
 from .speech import TTSSetup, STTSetup
 

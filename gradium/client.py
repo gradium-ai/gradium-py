@@ -15,7 +15,7 @@ from typing import Any
 import aiohttp
 import numpy as np
 
-from . import speech, usages, version, voices
+from . import speech, usages, version, voices, stream
 
 SOURCE = f"python-client/{version.__version__}"
 
@@ -342,6 +342,32 @@ class GradiumClient:
             aiohttp.ClientError: If the API request fails.
         """
         return await speech.tts_stream(self, setup, text)
+
+    def tts_realtime(self, **kwargs) -> "stream.Tts":
+        """Create a real-time TTS WebSocket connection.
+
+        Establishes a WebSocket connection for real-time text-to-speech
+        synthesis. This allows sending text and receiving audio chunks
+        interactively.
+
+        Args:
+            **kwargs: Additional arguments for TTS setup.
+        """
+
+        return stream.Tts(self, **kwargs)
+
+    def stt_realtime(self, **kwargs) -> "stream.Stt":
+        """Create a real-time STT WebSocket connection.
+
+        Establishes a WebSocket connection for real-time speech-to-text
+        recognition. This allows sending audio and receiving transcribed
+        text segments interactively.
+
+        Args:
+            **kwargs: Additional arguments for STT setup.
+        """
+
+        return stream.Stt(self, **kwargs)
 
     async def tts(
         self,

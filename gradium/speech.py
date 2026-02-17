@@ -46,8 +46,10 @@ class TTSSetup(TypedDict, total=False):
     model_name: str = "default"
     voice: str | None = None
     voice_id: str | None = None
+    pronunciation_id: str | None = None
     output_format: str = "wav"
     json_config: Any | None = None
+    client_req_id: str | None = None
 
 
 class STTSetup(TypedDict, total=False):
@@ -62,6 +64,7 @@ class STTSetup(TypedDict, total=False):
     model_name: str = "default"
     input_format: str = "wav"
     json_config: Any | None = None
+    client_req_id: str | None = None
 
 
 @dataclass
@@ -77,6 +80,7 @@ class TextWithTimestamps:
     text: str
     start_s: float
     stop_s: float
+    client_req_id: str | None = None
 
 
 class TTSStream:
@@ -154,6 +158,7 @@ class TTSStream:
                     text=msg.get("text", ""),
                     start_s=start_s,
                     stop_s=msg.get("stop_s", start_s),
+                    client_req_id=msg.get("client_req_id"),
                 )
                 self._text_with_timestamps.append(twt)
             elif msg_type == "audio":
@@ -355,6 +360,11 @@ class STTStream:
     def request_id(self) -> str | None:
         """Get the unique request ID."""
         return self._ready.get("request_id")
+
+    @property
+    def delay_in_frames(self) -> int | None:
+        """Get the delay in frames configured for this STT request."""
+        return self._ready.get("delay_in_frames")
 
 
 @dataclass
