@@ -247,7 +247,7 @@ class Tts:
         payload = {"type": "end_of_stream"}
         if client_req_id is not None:
             payload["client_req_id"] = client_req_id
-        await self._ws.send_json({"type": "end_of_stream"})
+        await self._ws.send_json(payload)
 
     async def wait_for_ready(self):
         """Wait for the ready message from the server.
