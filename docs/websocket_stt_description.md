@@ -30,6 +30,8 @@ Include your API key in the WebSocket connection header:
 | 🟢⬇️ Server→Client | Text (result) | `{"type": "text", "text": "Hello world", "start_s": 0.5}` |
 | 🟢⬇️ Server→Client | VAD (activity) | `{"type": "step", "vad": [...], "step_idx": 5, "step_duration_s": 0.08}` |
 | 🟢⬇️ Server→Client | End Text | `{"type": "end_text", "stop_s": 2.5}` |
+| 🔵⬆️ Client→Server | Flush | `{"type": "flush", "flush_id": "..."}` |
+| 🟢⬇️ Server→Client | Flushed | `{"type": "flushed", "flush_id": "..."}` |
 | 🔵⬆️ Client→Server | EndOfStream | `{"type": "end_of_stream"}` |
 | 🟢⬇️ Server→Client | EndOfStream | `{"type": "end_of_stream"}` |
 | 🔴⬇️ Server→Client | Error | `{"type": "error", "message": "Error description", "code": 1008}` |
@@ -216,7 +218,28 @@ available.
 
 ---
 
-### 7. End Of Stream
+### 7. Flush Message
+
+**Direction:** Client → Server
+**Format:** JSON Object
+
+```json
+{
+  "type": "flush",
+  "flush_id": "1"
+}
+```
+
+**Fields:**
+- `type` (string, required): Must be "flush"
+- `flush_id` (string, required): Unique identifier for the flush request
+
+This message can be sent by the client to request the server to flush any
+buffered audio and return all outstanding text results immediately. The server
+will respond with a `flushed` message containing the same `flush_id` once the
+flush is complete.
+
+### 8. End Of Stream
 
 **Direction:** Client → Server and Server → Client
 **Format:** JSON Object
