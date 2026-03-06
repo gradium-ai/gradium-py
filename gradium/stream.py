@@ -143,6 +143,7 @@ class Tts:
         client: "client.GradiumClient",
         route: str = "speech/tts",
         send_setup_on_start: bool = True,
+        wait_for_ready_on_start: bool = False,
         **kwargs,
     ):
         """Initialize the TTS streaming client.
@@ -150,6 +151,8 @@ class Tts:
         Args:
             client: The GradiumClient instance.
             route: The WebSocket route for TTS (default: "speech/tts").
+            send_setup_on_start: Whether to automatically send setup parameters on context entry.
+            wait_for_ready_on_start: Whether to automatically wait for ready message on context entry.
             **kwargs: Setup parameters to send to the server (model_name, voice, etc.).
         """
         self._client = client
@@ -159,16 +162,16 @@ class Tts:
         self._session = None
         self._ready = None
         self._send_setup_on_start = send_setup_on_start
+        self._wait_for_ready_on_start = wait_for_ready_on_start
 
     async def __aenter__(self):
         self._session = aiohttp.ClientSession(headers=self._client.headers)
         self._ws = await self._client.ws(self._session, self._route)
+        self._ready = None
         if self._send_setup_on_start:
             await self.send_setup(self._kwargs)
-            ready = await self.wait_for_ready()
-            self._ready = ready
-        else:
-            self._ready = None
+            if self._wait_for_ready_on_start:
+                self._ready = await self.wait_for_ready()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -374,6 +377,8 @@ class Stt:
         self,
         client: "client.GradiumClient",
         route: str = "speech/asr",
+        send_setup_on_start: bool = True,
+        wait_for_ready_on_start: bool = False,
         **kwargs,
     ):
         """Initialize the STT streaming client.
@@ -381,6 +386,8 @@ class Stt:
         Args:
             client: The GradiumClient instance.
             route: The WebSocket route for STT (default: "speech/asr").
+            send_setup_on_start: Whether to automatically send setup parameters on context entry.
+            wait_for_ready_on_start: Whether to automatically wait for ready message on context entry.
             **kwargs: Setup parameters to send to the server (model_name, input_format, etc.).
         """
         self._client = client
@@ -390,13 +397,17 @@ class Stt:
         self._session = None
         self._setup = None
         self._ready = None
+        self._send_setup_on_start = send_setup_on_start
+        self._wait_for_ready_on_start = wait_for_ready_on_start
 
     async def __aenter__(self):
         self._session = aiohttp.ClientSession(headers=self._client.headers)
         self._ws = await self._client.ws(self._session, self._route)
-        await self.send_setup(self._kwargs)
-        ready = await self.wait_for_ready()
-        self._ready = ready
+        self._ready = None
+        if self._send_setup_on_start:
+            await self.send_setup(self._kwargs)
+            if self._wait_for_ready_on_start:
+                self._ready = await self.wait_for_ready()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -573,6 +584,8 @@ class Stt:
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
+            elif msg_type == "ready" and self._ready is None:
+                self._ready = data
             return data
 
     @property
