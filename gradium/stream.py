@@ -162,14 +162,19 @@ class Tts:
 
     async def __aenter__(self):
         self._session = aiohttp.ClientSession(headers=self._client.headers)
-        self._ws = await self._client.ws(self._session, self._route)
-        if self._send_setup_on_start:
-            await self.send_setup(self._kwargs)
-            ready = await self.wait_for_ready()
-            self._ready = ready
-        else:
-            self._ready = None
-        return self
+        try:
+            self._ws = await self._client.ws(self._session, self._route)
+            if self._send_setup_on_start:
+                await self.send_setup(self._kwargs)
+                ready = await self.wait_for_ready()
+                self._ready = ready
+            else:
+                self._ready = None
+            return self
+        except Exception:
+            # __aexit__ is not automatically called when __aenter__ raises.
+            await self.__aexit__(None, None, None)
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
         if self._ws is not None:
@@ -393,11 +398,16 @@ class Stt:
 
     async def __aenter__(self):
         self._session = aiohttp.ClientSession(headers=self._client.headers)
-        self._ws = await self._client.ws(self._session, self._route)
-        await self.send_setup(self._kwargs)
-        ready = await self.wait_for_ready()
-        self._ready = ready
-        return self
+        try:
+            self._ws = await self._client.ws(self._session, self._route)
+            await self.send_setup(self._kwargs)
+            ready = await self.wait_for_ready()
+            self._ready = ready
+            return self
+        except Exception:
+            # __aexit__ is not automatically called when __aenter__ raises.
+            await self.__aexit__(None, None, None)
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
         if self._ws is not None:
