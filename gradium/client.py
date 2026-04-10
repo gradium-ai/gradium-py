@@ -112,7 +112,7 @@ class GradiumClient:
     def __init__(
         self,
         *,
-        base_url: str = "https://eu.api.gradium.ai/api/",
+        base_url: str = "https://api.gradium.ai/api/",
         api_key: str | None = None,
     ):
         """Initialize the Gradium client.
