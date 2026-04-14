@@ -156,7 +156,7 @@ def main() -> int:
     )
     tts_parser.add_argument(
         "--gradium-base-url",
-        default="https://eu.api.gradium.ai/api",
+        default="https://api.gradium.ai/api",
         help="Gradium API base URL",
     )
     tts_parser.add_argument(
@@ -178,7 +178,7 @@ def main() -> int:
     )
     stt_parser.add_argument(
         "--gradium-base-url",
-        default="https://eu.api.gradium.ai/api",
+        default="https://api.gradium.ai/api",
         help="Gradium API base URL",
     )
     stt_parser.add_argument(

@@ -15,7 +15,7 @@ This is a test of the text to speech streaming capabilities of the Gradium API.
 
 async def main():
     parser = argparse.ArgumentParser(description="Test TTS WebSocket API")
-    parser.add_argument("--url", default="https://eu.api.gradium.ai/api")
+    parser.add_argument("--url", default="https://api.gradium.ai/api")
     parser.add_argument("--api-key", help="API key for authentication")
     parser.add_argument(
         "--text", help="Text to synthesize", default=DEFAULT_TEXT
