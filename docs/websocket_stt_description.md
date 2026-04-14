@@ -4,14 +4,8 @@ Connect to this endpoint via WebSocket for real-time speech-to-text conversion w
 
 **Connection URL:**
 
-For Europe
 ```
-wss://eu.api.gradium.ai/api/speech/asr
-```
-
-For the USA
-```
-wss://us.api.gradium.ai/api/speech/asr
+wss://api.gradium.ai/api/speech/asr
 ```
 
 **Authentication:**

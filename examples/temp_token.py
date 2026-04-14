@@ -32,7 +32,7 @@ async def synthesize_speech(uri: str, api_key: str, text: str):
     Synthesize speech using temporary token authentication.
 
     Args:
-        uri: Base API URI (e.g., https://eu.api.gradium.ai/api)
+        uri: Base API URI (e.g., https://api.gradium.ai/api)
         api_key: API key for authentication
         text: Text to synthesize
     """
@@ -110,8 +110,8 @@ def main():
     )
     parser.add_argument(
         "--uri",
-        default="https://eu.api.gradium.ai/api",
-        help="Base API URI (default: https://eu.api.gradium.ai/api)",
+        default="https://api.gradium.ai/api",
+        help="Base API URI (default: https://api.gradium.ai/api)",
     )
     parser.add_argument(
         "--api-key",
