@@ -12,7 +12,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Test STT WebSocket API")
     parser.add_argument(
         "--url",
-        default="https://eu.api.gradium.ai/api",
+        default="https://api.gradium.ai/api",
     )
     parser.add_argument(
         "--api-key", required=True, help="API key for authentication"

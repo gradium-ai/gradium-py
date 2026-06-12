@@ -11,9 +11,7 @@ See the [examples/](examples/) directory for usage examples:
 
 You can also try it out in Google Colab.
 
-- EU Server <a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_eu.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-- US server <a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_us.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
+<a target="_blank" href="https://colab.research.google.com/github/gradium-ai/gradium-py/blob/main/notebooks/gradium_example_eu.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 ## Command Line Interface
 
