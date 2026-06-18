@@ -16,8 +16,6 @@ import aiohttp
 
 from . import client as gradium_client
 
-ROUTE = "voices/"
-
 
 async def create(
     client: "gradium_client.GradiumClient",
@@ -71,7 +69,7 @@ async def create(
         if value is not None:
             form_data.add_field(key, str(value))
 
-    result = await client.post(ROUTE, data=form_data)
+    result = await client.post(client.routes.voices, data=form_data)
     file.close()
     return result
 
@@ -96,7 +94,7 @@ async def get(
     """
     voice_uid = "" if voice_uid is None else voice_uid
     return await client.get(
-        f"{ROUTE}{voice_uid}",
+        f"{client.routes.voices}{voice_uid}",
         params={"limit": 0, "include_catalog": int(include_catalog)},
     )
 
@@ -130,7 +128,7 @@ async def update(
     data = {k: v for k, v in data.items() if v is not None}
     if data:
         return await client.put(
-            f"{ROUTE}{voice_uid}",
+            f"{client.routes.voices}{voice_uid}",
             json=data,
         )
 
@@ -153,4 +151,4 @@ async def delete(
     Raises:
         aiohttp.ClientError: If the API request fails.
     """
-    return await client.delete(f"{ROUTE}{voice_uid}")
+    return await client.delete(f"{client.routes.voices}{voice_uid}")

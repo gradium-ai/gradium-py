@@ -20,6 +20,62 @@ from . import speech, usages, version, voices, stream
 SOURCE = f"python-client/{version.__version__}"
 
 
+class Routes:
+    """Abstract API routes used by :class:`GradiumClient`.
+
+    Each route is resolved against the client's ``base_url``. This base class
+    leaves every route undefined: accessing one raises ``NotImplementedError``.
+    Use a concrete subclass (:class:`RoutesGradium`, :class:`RoutesBasetenTTS`)
+    or subclass this to describe a different deployment layout.
+
+    Attributes:
+        tts: WebSocket route for text-to-speech.
+        stt: WebSocket route for speech-to-text.
+        voices: HTTP route for voice management (custom voice CRUD).
+        usages: HTTP route for credit and usage queries.
+    """
+
+    @property
+    def tts(self) -> str:
+        raise NotImplementedError("tts route is not defined for these Routes")
+
+    @property
+    def stt(self) -> str:
+        raise NotImplementedError("stt route is not defined for these Routes")
+
+    @property
+    def voices(self) -> str:
+        raise NotImplementedError(
+            "voices route is not defined for these Routes"
+        )
+
+    @property
+    def usages(self) -> str:
+        raise NotImplementedError(
+            "usages route is not defined for these Routes"
+        )
+
+
+class RoutesGradium(Routes):
+    """Routes for the hosted Gradium API."""
+
+    tts = "speech/tts"
+    stt = "speech/asr"
+    voices = "voices/"
+    usages = "usages/"
+
+
+class RoutesBasetenTTS(Routes):
+    """Routes for a single-model Baseten TTS deployment.
+
+    The websocket is served at the base URL itself, so ``tts`` is empty. This
+    deployment is TTS-only: ``stt``, ``voices`` and ``usages`` are unsupported
+    and inherit the base behavior (raising ``NotImplementedError``).
+    """
+
+    tts = ""
+
+
 async def send(
     ws: aiohttp.ClientWebSocketResponse,
     setup: dict,
@@ -114,6 +170,8 @@ class GradiumClient:
         *,
         base_url: str = "https://api.gradium.ai/api/",
         api_key: str | None = None,
+        additional_headers: dict[str, str] | None = None,
+        routes: Routes | None = None,
     ):
         """Initialize the Gradium client.
 
@@ -122,6 +180,16 @@ class GradiumClient:
                 Automatically adds protocol (http/https) if missing.
             api_key: API key for authentication. If not provided, reads from the
                 GRADIUM_API_KEY environment variable.
+            additional_headers: Extra HTTP headers to send with every request and
+                WebSocket connection. Useful when the API is hosted behind a proxy
+                that requires its own credentials, e.g. when serving TTS through
+                Baseten: ``additional_headers={"Authorization": "Api-Key <key>"}``.
+                These are merged into the default headers and take precedence on
+                key conflicts.
+            routes: API routes to use, resolved against ``base_url``. Defaults to
+                the hosted Gradium API layout. Override when the deployment maps
+                endpoints differently, e.g. ``RoutesBasetenTTS()`` for a Baseten
+                single-model deployment serving TTS at the base URL.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -139,16 +207,24 @@ class GradiumClient:
             if api_key is not None
             else os.environ.get("GRADIUM_API_KEY")
         )
-        if api_key is None:
+
+        if api_key is None and additional_headers is None:
             raise ValueError(
-                "Missing api-key as cli or as env (GRADIUM_API_KEY)"
+                "Missing authentication: provide api_key (or set "
+                "GRADIUM_API_KEY) or pass additional_headers"
             )
         self._api_key = api_key
+        self._additional_headers = additional_headers or {}
+        self.routes = routes or RoutesGradium()
 
     @property
     def headers(self) -> dict:
         """Get HTTP headers with authentication."""
-        return {"x-api-key": self._api_key, "x-api-source": SOURCE}
+        headers = {"x-api-source": SOURCE}
+        if self._api_key is not None:
+            headers["x-api-key"] = self._api_key
+        headers.update(self._additional_headers)
+        return headers
 
     def ws(self, session, route: str) -> aiohttp.ClientWebSocketResponse:
         """Create a WebSocket connection to the specified route.

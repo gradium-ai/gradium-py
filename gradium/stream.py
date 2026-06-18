@@ -141,7 +141,7 @@ class Tts:
     def __init__(
         self,
         client: "client.GradiumClient",
-        route: str = "speech/tts",
+        route: str | None = None,
         send_setup_on_start: bool = True,
         wait_for_ready_on_start: bool = False,
         **kwargs,
@@ -150,14 +150,15 @@ class Tts:
 
         Args:
             client: The GradiumClient instance.
-            route: The WebSocket route for TTS (default: "speech/tts").
+            route: The WebSocket route for TTS. Defaults to the client's
+                configured ``routes.tts``.
             send_setup_on_start: Whether to automatically send setup parameters on context entry.
             wait_for_ready_on_start: Whether to automatically wait for ready message on context entry.
             **kwargs: Setup parameters to send to the server (model_name, voice, etc.).
         """
         self._client = client
         self._kwargs = kwargs
-        self._route = route
+        self._route = route if route is not None else client.routes.tts
         self._ws = None
         self._session = None
         self._ready = None
@@ -376,7 +377,7 @@ class Stt:
     def __init__(
         self,
         client: "client.GradiumClient",
-        route: str = "speech/asr",
+        route: str | None = None,
         send_setup_on_start: bool = True,
         wait_for_ready_on_start: bool = False,
         **kwargs,
@@ -385,14 +386,15 @@ class Stt:
 
         Args:
             client: The GradiumClient instance.
-            route: The WebSocket route for STT (default: "speech/asr").
+            route: The WebSocket route for STT. Defaults to the client's
+                configured ``routes.stt``.
             send_setup_on_start: Whether to automatically send setup parameters on context entry.
             wait_for_ready_on_start: Whether to automatically wait for ready message on context entry.
             **kwargs: Setup parameters to send to the server (model_name, input_format, etc.).
         """
         self._client = client
         self._kwargs = kwargs
-        self._route = route
+        self._route = route if route is not None else client.routes.stt
         self._ws = None
         self._session = None
         self._setup = None

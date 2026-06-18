@@ -28,7 +28,14 @@ Example:
 """
 
 from . import speech, usages, voices, stream
-from .client import GradiumClient
+from .client import GradiumClient, Routes, RoutesGradium, RoutesBasetenTTS
 from .speech import TTSSetup, STTSetup
 
-__all__ = ["GradiumClient", "TTSSetup", "STTSetup"]
+__all__ = [
+    "GradiumClient",
+    "Routes",
+    "RoutesGradium",
+    "RoutesBasetenTTS",
+    "TTSSetup",
+    "STTSetup",
+]

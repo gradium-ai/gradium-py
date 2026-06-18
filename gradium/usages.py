@@ -10,8 +10,6 @@ Functions:
 
 from . import client as gradium_client
 
-ROUTE = "usages/"
-
 
 async def get(client: "gradium_client.GradiumClient") -> dict:
     """Get the number of remaining and allocated credits.
@@ -31,7 +29,7 @@ async def get(client: "gradium_client.GradiumClient") -> dict:
     Raises:
         aiohttp.ClientError: If the API request fails.
     """
-    return await client.get(f"{ROUTE}credits")
+    return await client.get(f"{client.routes.usages}credits")
 
 
 async def summary(client: "gradium_client.GradiumClient") -> dict:
@@ -53,4 +51,4 @@ async def summary(client: "gradium_client.GradiumClient") -> dict:
     Raises:
         aiohttp.ClientError: If the API request fails.
     """
-    return await client.get(f"{ROUTE}summary")
+    return await client.get(f"{client.routes.usages}summary")

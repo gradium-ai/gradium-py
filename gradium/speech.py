@@ -219,7 +219,6 @@ async def tts_stream(
     client: "gradium_client.GradiumClient",
     setup: TTSSetup,
     text: str | list[str] | AsyncGenerator,
-    tts_endpoint: str = "speech/tts",
 ) -> TTSStream:
     """Stream Text-to-Speech synthesis results.
 
@@ -250,7 +249,9 @@ async def tts_stream(
             setup = dict(setup)
             setup["json_config"] = json.dumps(config)
 
-    stream = client.stream(tts_endpoint, setup, text, map_input_fn=format_text)
+    stream = client.stream(
+        client.routes.tts, setup, text, map_input_fn=format_text
+    )
     ready = await anext(stream)
     if (msg_type := ready.get("type")) != "ready":
         raise RuntimeError(f"unexpected first message type `{msg_type}`")
@@ -389,7 +390,6 @@ async def stt_stream(
     client: "gradium_client.GradiumClient",
     setup: STTSetup,
     audio: AsyncGenerator,
-    stt_endpoint: str = "speech/asr",
 ) -> STTStream:
     """Stream Speech-to-Text transcription results.
 
@@ -436,7 +436,7 @@ async def stt_stream(
             setup["json_config"] = json.dumps(config)
 
     stream = client.stream(
-        stt_endpoint, setup, audio, map_input_fn=format_audio
+        client.routes.stt, setup, audio, map_input_fn=format_audio
     )
     ready = await anext(stream)
     if ready.get("type") != "ready":
