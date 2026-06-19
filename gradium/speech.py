@@ -262,6 +262,7 @@ async def tts(
     client: "gradium_client.GradiumClient",
     setup: TTSSetup,
     text: str | list[str] | AsyncGenerator,
+    tts_endpoint: str = "speech/tts",
 ) -> TTSResult:
     """Buffered Text-to-Speech synthesis.
 
@@ -274,12 +275,14 @@ async def tts(
         setup: TTS configuration (TTSSetup TypedDict).
         text: Text to synthesize. Can be a string, list of strings, or
             async generator of strings.
+        tts_endpoint: WebSocket route for the TTS endpoint. Defaults to
+            "speech/tts".
 
     Returns:
         TTSResult containing complete audio data and metadata.
     """
     chunks = []
-    stream = await tts_stream(client, setup, text)
+    stream = await tts_stream(client, setup, text, tts_endpoint)
     async for chunk in stream.iter_bytes():
         chunks.append(chunk)
     raw_data = b"".join(chunks)
