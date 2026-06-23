@@ -78,31 +78,47 @@ async def main():
     if args.target_language is not None:
         setup["json_config"] = {"target_language": args.target_language}
 
-    async def audio_gen(audio, chunk_size: int):
-        for i in range(0, len(audio), chunk_size):
-            yield audio[i : i + chunk_size]
-
-    start_time = time.time()
-    # 1920 samples == 80ms at 24kHz.
-    stream = await grc.s2s_stream(setup, audio_gen(pcm, 1920))
-
     all_bytes = []
-    async for chunk in stream.iter_audio():
-        all_bytes.append(chunk)
+    all_text = []
+    start_time = time.time()
+
+    # Open a real-time duplex S2S connection (see gradium/stream.py). Audio is
+    # streamed in while output audio and text are streamed back concurrently.
+    async with grc.s2s_realtime(wait_for_ready_on_start=True, **setup) as s2s:
+        print("Ready:", s2s.ready)
+
+        async def send_loop():
+            # 1920 samples == 80ms at 24kHz.
+            for i in range(0, len(pcm), 1920):
+                await s2s.send_audio(pcm[i : i + 1920])
+            await s2s.send_eos()
+
+        async def recv_loop():
+            async for msg in s2s:
+                if msg["type"] == "audio":
+                    all_bytes.append(msg["audio"])  # already decoded bytes
+                elif msg["type"] == "text":
+                    all_text.append(msg["text"])
+                    # Print transcribed text as it arrives.
+                    print(msg["text"], end=" ", flush=True)
+
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(send_loop())
+            tg.create_task(recv_loop())
+
     total_time = time.time() - start_time
 
     # Output is raw 48kHz int16 PCM; convert to float [-1, 1] and write a wav.
     out_pcm = np.frombuffer(b"".join(all_bytes), dtype=np.int16)
     out_float = out_pcm.astype(np.float32) / 32768.0
-    sample_rate = stream.sample_rate or OUTPUT_SAMPLE_RATE
+    sample_rate = (s2s.ready or {}).get("sample_rate", OUTPUT_SAMPLE_RATE)
     sphn.write_wav(args.out, out_float, sample_rate)
     print(
         f"Wrote {len(out_pcm)} samples ({sample_rate}Hz) to {args.out} "
         f"in {total_time:.2f}s"
     )
 
-    transcript = " ".join(t.text for t in stream._text_with_timestamps)
-    print(f"Transcript: {transcript}")
+    print(f"\nTranscript: {' '.join(all_text)}")
 
 
 if __name__ == "__main__":
