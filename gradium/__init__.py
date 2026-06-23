@@ -29,6 +29,6 @@ Example:
 
 from . import speech, usages, voices, stream
 from .client import GradiumClient
-from .speech import TTSSetup, STTSetup
+from .speech import TTSSetup, STTSetup, S2SSetup
 
-__all__ = ["GradiumClient", "TTSSetup", "STTSetup"]
+__all__ = ["GradiumClient", "TTSSetup", "STTSetup", "S2SSetup"]

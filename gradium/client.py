@@ -369,6 +369,21 @@ class GradiumClient:
 
         return stream.Stt(self, **kwargs)
 
+    def s2s_realtime(self, **kwargs) -> "stream.S2s":
+        """Create a real-time speech-to-speech WebSocket connection.
+
+        Establishes a WebSocket connection for real-time speech-to-speech
+        conversion. This allows sending input audio and receiving both output
+        audio chunks and transcribed (optionally translated) text segments
+        interactively.
+
+        Args:
+            **kwargs: Additional arguments for S2S setup (input_format,
+                output_format, voice_id, json_config, etc.).
+        """
+
+        return stream.S2s(self, **kwargs)
+
     async def tts(
         self,
         setup: "speech.TTSSetup",
@@ -490,6 +505,95 @@ class GradiumClient:
             aiohttp.ClientError: If the API request fails.
         """
         return await speech.stt(self, setup, audio, sample_rate)
+
+    async def s2s_stream(
+        self,
+        setup: "speech.S2SSetup",
+        audio: AsyncGenerator,
+    ) -> "speech.S2SStream":
+        """Stream speech-to-speech conversion results.
+
+        Initiates a streaming S2S request and returns a handler for consuming
+        the output audio chunks and transcribed (optionally translated) text
+        as they arrive from the server.
+
+        Args:
+            setup: S2S configuration including models, formats, voice and
+                json_config (e.g. {"target_language": "en"}).
+            audio: Async generator yielding audio chunks. For numpy arrays:
+                - dtype must be int16 or float32
+                - shape must be 1-dimensional
+                - For float32, values should be in range [-1.0, 1.0]
+                For "pcm" input the expected rate is 24 kHz, mono.
+
+        Returns:
+            S2SStream object for iterating over output audio and text.
+
+        Example:
+            >>> async def translate_stream():
+            ...     client = GradiumClient(api_key="your-key")
+            ...     setup = S2SSetup(
+            ...         input_format="pcm",
+            ...         output_format="pcm",
+            ...         json_config={"target_language": "en"},
+            ...     )
+            ...     stream = await client.s2s_stream(setup, audio_generator())
+            ...     async for chunk in stream.iter_audio():
+            ...         play(chunk)
+            ...     print(stream._text_with_timestamps)
+
+        Raises:
+            RuntimeError: If server doesn't send expected "ready" message.
+            ValueError: If audio format is invalid.
+            aiohttp.ClientError: If the API request fails.
+        """
+        return await speech.s2s_stream(self, setup, audio)
+
+    async def s2s(
+        self,
+        setup: "speech.S2SSetup",
+        audio: bytes | np.ndarray | AsyncGenerator[bytes],
+        sample_rate: int | None = None,
+    ) -> "speech.S2SResult":
+        """Convert speech to speech (buffered).
+
+        Pipes audio through the speech-to-speech pipeline and returns the
+        complete output audio together with the transcribed (optionally
+        translated) text once the request completes. This is simpler than
+        s2s_stream for when you don't need to process results incrementally.
+
+        Args:
+            setup: S2S configuration including models, formats, voice and
+                json_config (e.g. {"target_language": "en"}).
+            audio: Audio data. Can be:
+                - bytes: Raw audio bytes (sample_rate must be None)
+                - np.ndarray: Audio samples (int16 or float32, "pcm" input only)
+                - AsyncGenerator[bytes]: Stream of audio chunks
+            sample_rate: Sample rate in Hz. Required for numpy arrays (must be
+                24000), not supported for bytes input.
+
+        Returns:
+            S2SResult containing the output audio, transcription and metadata.
+
+        Example:
+            >>> async def translate():
+            ...     client = GradiumClient(api_key="your-key")
+            ...     setup = S2SSetup(
+            ...         input_format="wav",
+            ...         output_format="wav",
+            ...         json_config={"target_language": "en"},
+            ...     )
+            ...     with open("speech.wav", "rb") as f:
+            ...         result = await client.s2s(setup, f.read())
+            ...     print(result.text)
+            ...     with open("translated.wav", "wb") as f:
+            ...         f.write(result.raw_data)
+
+        Raises:
+            ValueError: If audio format is invalid or sample_rate mismatch.
+            aiohttp.ClientError: If the API request fails.
+        """
+        return await speech.s2s(self, setup, audio, sample_rate)
 
     async def credits(self) -> dict:
         """Get current credit balance information.
