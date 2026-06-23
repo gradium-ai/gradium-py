@@ -1,24 +1,30 @@
-"""Text-to-Speech and Speech-to-Text functionality for Gradium API.
+"""Text-to-Speech, Speech-to-Text and Speech-to-Speech functionality.
 
 This module provides high-level interfaces for:
 - Text-to-Speech (TTS) conversion with streaming and buffered modes
 - Speech-to-Text (STT) transcription with streaming and buffered modes
+- Speech-to-Speech (S2S) translation/conversion with streaming and buffered modes
 - Voice configuration and management
 
 Classes:
     TTSSetup: Configuration dictionary for TTS requests.
     STTSetup: Configuration dictionary for STT requests.
+    S2SSetup: Configuration dictionary for S2S requests.
     TextWithTimestamps: Text segment with timestamp information.
     TTSStream: Streaming TTS result handler.
     TTSResult: Buffered TTS result with audio data.
     STTStream: Streaming STT result handler.
     STTResult: Buffered STT result with transcription.
+    S2SStream: Streaming S2S result handler.
+    S2SResult: Buffered S2S result with output audio and transcription.
 
 Functions:
     tts_stream: Stream TTS results.
     tts: Get buffered TTS result.
     stt_stream: Stream STT results.
     stt: Get buffered STT result.
+    s2s_stream: Stream S2S results.
+    s2s: Get buffered S2S result.
 """
 
 import base64
@@ -67,6 +73,43 @@ class STTSetup(TypedDict, total=False):
     client_req_id: str | None = None
 
 
+class S2SSetup(TypedDict, total=False):
+    """Configuration for Speech-to-Speech requests.
+
+    Speech-to-Speech pipes input audio through speech recognition, optional
+    translation and speech synthesis, returning both the synthesized output
+    audio and the (optionally translated) transcribed text.
+
+    Attributes:
+        model_name: S2S model alias to use. Defaults to "default".
+        stt_model_name: Speech-to-text model used for transcription.
+        tts_model_name: Text-to-speech model used for synthesis.
+        input_format: Audio input format. One of "pcm", "wav", "opus",
+            "ulaw_8000", "alaw_8000", or an explicit rate like "pcm_24000".
+            For "pcm" the input is 24 kHz, 16-bit signed mono. Defaults to "pcm".
+        output_format: Audio output format (e.g. "pcm", "wav", "opus",
+            "ulaw_8000"). For "pcm" the output is 48 kHz, 16-bit signed mono.
+            Defaults to "pcm".
+        voice_id: Voice UID used for the synthesized output.
+        json_config: Additional JSON configuration for the S2S pipeline. Set
+            "target_language" (e.g. "en") to translate, omit to keep the
+            original language.
+        client_req_id: Client supplied identifier used for multiplexing.
+        close_ws_on_eos: Whether the server closes the socket after sending its
+            end_of_stream. Defaults to True.
+    """
+
+    model_name: str = "default"
+    stt_model_name: str | None = None
+    tts_model_name: str | None = None
+    input_format: str = "pcm"
+    output_format: str = "pcm"
+    voice_id: str | None = None
+    json_config: Any | None = None
+    client_req_id: str | None = None
+    close_ws_on_eos: bool | None = None
+
+
 @dataclass
 class TextWithTimestamps:
     """Text segment with timestamp information.
@@ -75,12 +118,15 @@ class TextWithTimestamps:
         text: The text content.
         start_s: Start time in seconds.
         stop_s: Stop time in seconds.
+        client_req_id: Client supplied identifier used for multiplexing.
+        stream_id: Stream identifier when present (used by S2S).
     """
 
     text: str
     start_s: float
     stop_s: float
     client_req_id: str | None = None
+    stream_id: int | None = None
 
 
 class TTSStream:
@@ -517,4 +563,327 @@ async def stt(
         text=" ".join(t.text for t in all_texts),
         text_with_timestamps=all_texts,
         request_id=stream.request_id,
+    )
+
+
+def _encode_audio_chunk(audio: bytes | np.ndarray) -> dict:
+    """Encode an audio chunk into a server `audio` message.
+
+    Args:
+        audio: Audio chunk as raw bytes or a 1-D numpy array (int16 or
+            float32). float32 samples are expected in the range [-1.0, 1.0].
+
+    Returns:
+        A dict with the base64 encoded audio ready to be sent to the server.
+
+    Raises:
+        ValueError: If the numpy array dtype or shape is invalid.
+    """
+    if isinstance(audio, np.ndarray):
+        if audio.dtype == np.int16:
+            pass
+        elif audio.dtype == np.float32:
+            audio = (audio * 32768).astype(np.int16)
+        else:
+            raise ValueError("audio np.ndarray must be int16 or float32")
+        if audio.ndim != 1:
+            raise ValueError("audio np.ndarray must be 1-dimensional")
+        audio = audio.tobytes()
+
+    return {
+        "type": "audio",
+        "audio": base64.b64encode(audio).decode("utf8"),
+    }
+
+
+class S2SStream:
+    """Stream handler for Speech-to-Speech results.
+
+    Speech-to-Speech is duplex: input audio is streamed to the server while
+    output audio chunks and transcribed (optionally translated) text segments
+    are streamed back. Use :meth:`iter_audio` to consume the output audio while
+    text segments are collected into ``_text_with_timestamps``, or
+    :meth:`iter_events` to handle every server message yourself.
+
+    Attributes:
+        _stream: Underlying async message stream.
+        _setup: S2S configuration used for this request.
+        _text_with_timestamps: Collected text segments with timing.
+    """
+
+    def __init__(
+        self,
+        stream: AsyncGenerator,
+        setup: S2SSetup,
+        ready: Any,
+    ):
+        """Initialize S2SStream.
+
+        Args:
+            stream: Async generator yielding S2S messages.
+            setup: S2S configuration dictionary.
+            ready: The server's `ready` message.
+        """
+        self._stream = stream
+        self._setup = setup
+        self._ready = ready
+        self._text_with_timestamps = []
+
+    @property
+    def sample_rate(self) -> int | None:
+        """Get the sample rate of the output audio."""
+        return self._ready.get("sample_rate")
+
+    @property
+    def frame_size(self) -> int | None:
+        """Get the output frame size in samples."""
+        return self._ready.get("frame_size")
+
+    @property
+    def request_id(self) -> str | None:
+        """Get the unique request ID."""
+        return self._ready.get("request_id")
+
+    async def iter_audio(self) -> AsyncGenerator[bytes]:
+        """Stream output audio chunks as bytes.
+
+        Iterates over the output audio chunks from the server, yielding raw
+        audio bytes and collecting transcribed text segments into
+        ``_text_with_timestamps`` along the way.
+
+        Yields:
+            Raw output audio data chunks (base64 decoded) in the format
+            specified by the setup configuration (e.g. PCM, WAV).
+
+        Example:
+            >>> async def translate_to_file():
+            ...     client = GradiumClient(api_key="your-key")
+            ...     setup = S2SSetup(
+            ...         input_format="pcm",
+            ...         output_format="wav",
+            ...         json_config={"target_language": "en"},
+            ...     )
+            ...     stream = await client.s2s_stream(setup, audio_generator())
+            ...     with open("output.wav", "wb") as f:
+            ...         async for chunk in stream.iter_audio():
+            ...             f.write(chunk)
+            ...     for twt in stream._text_with_timestamps:
+            ...         print(f"{twt.text}: {twt.start_s}s - {twt.stop_s}s")
+        """
+        async for msg in self._stream:
+            msg_type = msg.get("type")
+            if msg_type == "text":
+                start_s = msg.get("start_s", 0.0)
+                self._text_with_timestamps.append(
+                    TextWithTimestamps(
+                        text=msg.get("text", ""),
+                        start_s=start_s,
+                        stop_s=msg.get("stop_s", start_s),
+                        client_req_id=msg.get("client_req_id"),
+                        stream_id=msg.get("stream_id"),
+                    )
+                )
+            elif msg_type == "audio":
+                yield base64.b64decode(msg["audio"])
+
+    async def iter_events(self) -> AsyncGenerator[dict]:
+        """Stream every server message, with audio fields decoded.
+
+        Unlike :meth:`iter_audio` this yields both ``text`` and ``audio``
+        messages as dictionaries. ``audio`` messages have their ``audio`` field
+        replaced by the base64 decoded raw bytes. ``text`` messages are also
+        collected into ``_text_with_timestamps``.
+
+        Yields:
+            Server message dictionaries.
+        """
+        async for msg in self._stream:
+            msg_type = msg.get("type")
+            if msg_type == "text":
+                start_s = msg.get("start_s", 0.0)
+                self._text_with_timestamps.append(
+                    TextWithTimestamps(
+                        text=msg.get("text", ""),
+                        start_s=start_s,
+                        stop_s=msg.get("stop_s", start_s),
+                        client_req_id=msg.get("client_req_id"),
+                        stream_id=msg.get("stream_id"),
+                    )
+                )
+            elif msg_type == "audio":
+                msg = {**msg, "audio": base64.b64decode(msg["audio"])}
+            yield msg
+
+
+@dataclass
+class S2SResult:
+    """Buffered Speech-to-Speech result.
+
+    Contains the complete output audio together with the transcribed
+    (optionally translated) text and metadata.
+
+    Attributes:
+        raw_data: Raw output audio bytes in the specified format.
+        sample_rate: Sample rate of the output audio or None.
+        output_format: Audio output format (e.g. "pcm", "wav").
+        request_id: Unique ID for this S2S request.
+        text: Complete transcribed text with segments joined by spaces.
+        text_with_timestamps: List of text segments with timing information.
+    """
+
+    raw_data: bytes
+    sample_rate: int | None
+    output_format: str | None
+    request_id: str | None
+    text: str
+    text_with_timestamps: list[TextWithTimestamps]
+
+    def pcm16(self) -> np.array:
+        """Get PCM16 numpy array from raw output audio.
+
+        Returns:
+            Numpy array with int16 audio samples.
+
+        Raises:
+            ValueError: If output_format is not "pcm".
+        """
+        _format = self.output_format
+        if _format is None or not _format.startswith("pcm"):
+            raise ValueError("output_format is not 'pcm'")
+        return np.frombuffer(self.raw_data, dtype=np.int16)
+
+    def pcm(self) -> np.array:
+        """Get PCM float numpy array from raw output audio.
+
+        Converts PCM16 audio to float32 with values in range [-1.0, 1.0].
+
+        Returns:
+            Numpy array with float32 audio samples.
+
+        Raises:
+            ValueError: If output_format is not "pcm".
+        """
+        return self.pcm16().astype(np.float32) / 32768.0
+
+
+async def s2s_stream(
+    client: "gradium_client.GradiumClient",
+    setup: S2SSetup,
+    audio: AsyncGenerator,
+    s2s_endpoint: str = "speech/s2s",
+) -> S2SStream:
+    """Stream Speech-to-Speech results.
+
+    Initiates a streaming S2S request and returns a handler for consuming the
+    output audio chunks and transcribed text as they arrive from the server.
+
+    Args:
+        client: GradiumClient instance.
+        setup: S2S configuration (S2SSetup TypedDict).
+        audio: Async generator yielding audio chunks. For numpy arrays:
+            - dtype must be int16 or float32
+            - shape must be 1-dimensional
+            - For float32, values should be in range [-1.0, 1.0]
+            For "pcm" input the expected rate is 24 kHz, mono.
+        s2s_endpoint: WebSocket route for S2S (default: "speech/s2s").
+
+    Returns:
+        S2SStream object for iterating over output audio and text.
+
+    Raises:
+        RuntimeError: If server doesn't send expected "ready" message first.
+        ValueError: If audio format is invalid.
+    """
+    if (config := setup.get("json_config")) is not None:
+        if not isinstance(config, str):
+            # Make a copy to avoid modifying the original setup
+            setup = dict(setup)
+            setup["json_config"] = json.dumps(config)
+
+    stream = client.stream(
+        s2s_endpoint, setup, audio, map_input_fn=_encode_audio_chunk
+    )
+    ready = await anext(stream)
+    if (msg_type := ready.get("type")) != "ready":
+        raise RuntimeError(f"unexpected first message type `{msg_type}`")
+
+    return S2SStream(stream, setup=setup, ready=ready)
+
+
+async def s2s(
+    client: "gradium_client.GradiumClient",
+    setup: S2SSetup,
+    audio: bytes | np.ndarray | AsyncGenerator[bytes],
+    sample_rate: int | None = None,
+) -> S2SResult:
+    """Buffered Speech-to-Speech conversion.
+
+    Pipes audio through the speech-to-speech pipeline and returns the complete
+    output audio together with the transcribed (optionally translated) text
+    once the request completes. This is simpler than s2s_stream for when you
+    don't need to process results as they arrive.
+
+    Args:
+        client: GradiumClient instance.
+        setup: S2S configuration (S2SSetup TypedDict).
+        audio: Audio data. Can be:
+            - bytes: Raw audio bytes (sample_rate must be None)
+            - np.ndarray: Audio samples (int16 or float32, "pcm" input only)
+            - AsyncGenerator[bytes]: Stream of audio chunks
+        sample_rate: Sample rate in Hz. Required for numpy arrays (must be
+            24000), not supported for bytes input.
+
+    Returns:
+        S2SResult containing the output audio, transcription and metadata.
+
+    Raises:
+        ValueError: If audio format is invalid or sample_rate mismatch.
+    """
+
+    async def bytes_stream_gen(audio, chunk_size: int) -> AsyncGenerator[bytes]:
+        for i in range(0, len(audio), chunk_size):
+            yield audio[i : i + chunk_size]
+
+    if isinstance(audio, bytes):
+        if sample_rate is not None:
+            raise ValueError(
+                "sample_rate is not supported for bytes audio input"
+            )
+        bytes_stream = bytes_stream_gen(audio, 4096)
+    elif isinstance(audio, np.ndarray):
+        if not setup.get("input_format", "pcm").startswith("pcm"):
+            raise ValueError(
+                "input_format must be 'pcm' for np.ndarray audio input"
+            )
+        if sample_rate != 24000:
+            raise ValueError(
+                "sample_rate must be 24000 for np.ndarray audio input"
+            )
+        if audio.dtype == np.int16:
+            pass
+        elif audio.dtype == np.float32:
+            audio = (audio * 32768).astype(np.int16)
+        else:
+            raise ValueError("audio np.ndarray must be int16 or float32")
+        if audio.ndim != 1:
+            raise ValueError("audio np.ndarray must be 1-dimensional")
+        bytes_stream = bytes_stream_gen(audio, 1920)
+    else:
+        if sample_rate is not None:
+            raise ValueError(
+                "sample_rate is not supported for bytes audio input"
+            )
+        bytes_stream = audio
+
+    stream = await s2s_stream(client, setup, bytes_stream)
+    chunks = []
+    async for chunk in stream.iter_audio():
+        chunks.append(chunk)
+    return S2SResult(
+        raw_data=b"".join(chunks),
+        sample_rate=stream.sample_rate,
+        output_format=setup.get("output_format"),
+        request_id=stream.request_id,
+        text=" ".join(t.text for t in stream._text_with_timestamps),
+        text_with_timestamps=stream._text_with_timestamps,
     )

@@ -1,7 +1,8 @@
 """A streaming client for the Gradium API.
 
-This module provides async streaming interfaces for Text-to-Speech (TTS) and
-Speech-to-Text (STT) operations using WebSocket connections.
+This module provides async streaming interfaces for Text-to-Speech (TTS),
+Speech-to-Text (STT) and Speech-to-Speech (S2S) operations using WebSocket
+connections.
 
 Example (TTS):
     ```python
@@ -318,6 +319,285 @@ class Tts:
             msg = await self._ws.receive()
             if msg.type == aiohttp.WSMsgType.CLOSE:
                 return
+            if msg.type != aiohttp.WSMsgType.TEXT:
+                continue
+            data = json.loads(msg.data)
+            msg_type = data["type"]
+            if msg_type == "error":
+                raise RuntimeError(f"Error from server: {data}")
+            elif msg_type == "text":
+                start_s = data.get("start_s", 0.0)
+                data["stop_s"] = data.get("stop_s", start_s)
+            elif msg_type == "audio":
+                data["audio"] = base64.b64decode(data["audio"])
+            elif msg_type == "ready" and self._ready is None:
+                self._ready = data
+            return data
+
+    @property
+    def ready(self):
+        """Get the ready message received from the server.
+
+        Returns:
+            dict: The ready message data.
+        """
+        return self._ready
+
+
+class S2s:
+    """Speech-to-Speech streaming client.
+
+    This class provides an async context manager interface for streaming
+    speech-to-speech operations. Input audio is sent to the server and both
+    output audio chunks and transcribed (optionally translated) text segments
+    are received in real-time.
+
+    The class implements async iteration, allowing you to use `async for` to
+    receive messages from the server.
+
+    Attributes:
+        ready: Information returned by the server when the connection is ready.
+
+    Example:
+        ```python
+        setup = {
+            "input_format": "pcm",
+            "output_format": "pcm",
+            "voice_id": "YTpq7expH9539ERJ",
+            "json_config": {"target_language": "en"},
+        }
+        async with grc.s2s_realtime(**setup) as s2s:
+            async def send_loop():
+                for i in range(0, len(pcm_data), 1920):
+                    await s2s.send_audio(pcm_data[i:i + 1920])
+                await s2s.send_eos()
+
+            async def recv_loop():
+                async for msg in s2s:
+                    if msg["type"] == "audio":
+                        play(msg["audio"])  # raw output audio bytes
+                    elif msg["type"] == "text":
+                        print(msg["text"])
+
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(send_loop())
+                tg.create_task(recv_loop())
+        ```
+    """
+
+    def __init__(
+        self,
+        client: "client.GradiumClient",
+        route: str = "speech/s2s",
+        send_setup_on_start: bool = True,
+        wait_for_ready_on_start: bool = False,
+        **kwargs,
+    ):
+        """Initialize the S2S streaming client.
+
+        Args:
+            client: The GradiumClient instance.
+            route: The WebSocket route for S2S (default: "speech/s2s").
+            send_setup_on_start: Whether to automatically send setup parameters on context entry.
+            wait_for_ready_on_start: Whether to automatically wait for ready message on context entry.
+            **kwargs: Setup parameters to send to the server (input_format,
+                output_format, voice_id, json_config, etc.).
+        """
+        self._client = client
+        self._kwargs = kwargs
+        self._route = route
+        self._ws = None
+        self._session = None
+        self._setup = None
+        self._ready = None
+        self._send_setup_on_start = send_setup_on_start
+        self._wait_for_ready_on_start = wait_for_ready_on_start
+
+    async def __aenter__(self):
+        self._session = aiohttp.ClientSession(headers=self._client.headers)
+        self._ws = await self._client.ws(self._session, self._route)
+        self._ready = None
+        if self._send_setup_on_start:
+            await self.send_setup(self._kwargs)
+            if self._wait_for_ready_on_start:
+                self._ready = await self.wait_for_ready()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self._ws is not None:
+            await self._ws.close()
+        if self._session is not None:
+            await self._session.close()
+
+    async def send_setup(self, setup: Any):
+        """Send setup configuration to the server.
+
+        This is called automatically during context manager entry.
+
+        Args:
+            setup: Setup parameters (input_format, output_format, voice_id,
+                json_config, etc.).
+
+        Raises:
+            RuntimeError: If the connection is not open.
+        """
+        if not self._ws:
+            raise RuntimeError("Connection not open")
+        setup = speech.S2SSetup(**setup) if isinstance(setup, dict) else setup
+        setup = {**setup, "type": "setup"}
+
+        if (config := setup.get("json_config")) is not None:
+            if not isinstance(config, str):
+                setup["json_config"] = json.dumps(config)
+
+        self._setup = setup
+        await self._ws.send_json(setup)
+
+    async def send_audio(
+        self, audio: bytes | np.ndarray, client_req_id: str | None = None
+    ):
+        """Send input audio data to be converted.
+
+        Audio can be sent in chunks for streaming conversion. For PCM format,
+        input audio is expected to be 24kHz, mono, int16 or float32.
+
+        Args:
+            audio: Audio data as bytes or numpy array. If numpy array:
+                - Must be 1-dimensional
+                - For int16: values in range [-32768, 32767]
+                - For float32: values in range [-1.0, 1.0]
+            client_req_id: Optional identifier of the request used in
+                multiplexing.
+
+        Raises:
+            RuntimeError: If the connection is not open.
+            ValueError: If audio format is invalid.
+
+        Example:
+            ```python
+            # Send audio in 80ms chunks (1920 samples at 24kHz)
+            chunk_size = 1920
+            for i in range(0, len(pcm_data), chunk_size):
+                await s2s.send_audio(pcm_data[i:i + chunk_size])
+            ```
+        """
+        if not self._ws or self._setup is None:
+            raise RuntimeError("Connection not open")
+        if isinstance(audio, np.ndarray):
+            if not self._setup.get("input_format", "pcm").startswith("pcm"):
+                raise ValueError(
+                    "audio np.ndarray can only be sent when input_format is 'pcm'"
+                )
+            if audio.dtype == np.int16:
+                pass
+            elif audio.dtype == np.float32:
+                audio = (audio * 32768).astype(np.int16)
+            else:
+                raise ValueError("audio np.ndarray must be int16 or float32")
+            if audio.ndim != 1:
+                raise ValueError("audio np.ndarray must be 1-dimensional")
+            audio = audio.tobytes()
+
+        payload = {
+            "type": "audio",
+            "audio": base64.b64encode(audio).decode("utf-8"),
+        }
+        if client_req_id is not None:
+            payload["client_req_id"] = client_req_id
+        await self._ws.send_json(payload)
+
+    async def send_eos(self, client_req_id: str | None = None):
+        """Send end-of-stream signal.
+
+        This signals to the server that no more audio will be sent, allowing it
+        to finalize conversion and (unless ``close_ws_on_eos`` was set to
+        ``False``) close the stream.
+
+        Args:
+            client_req_id: Optional identifier of the request used in
+                multiplexing.
+
+        Raises:
+            RuntimeError: If the connection is not open.
+        """
+        if not self._ws:
+            raise RuntimeError("Connection not open")
+        payload = {"type": "end_of_stream"}
+        if client_req_id is not None:
+            payload["client_req_id"] = client_req_id
+        await self._ws.send_json(payload)
+
+    async def wait_for_ready(self):
+        """Wait for the ready message from the server.
+
+        This is called automatically during context manager entry.
+
+        Returns:
+            dict: The ready message data from the server.
+
+        Raises:
+            RuntimeError: If the connection is not open or unexpected message received.
+        """
+        if self._ws is None:
+            raise RuntimeError("Connection not open")
+        msg = await self._ws.receive()
+        if msg.type != aiohttp.WSMsgType.TEXT:
+            raise RuntimeError(f"Unexpected message type: {msg.type}")
+        data = json.loads(msg.data)
+        if data.get("type") != "ready":
+            raise RuntimeError(f"Expected ready message, got: {data}")
+        return data
+
+    def __aiter__(self):
+        """Return self as async iterator."""
+        return self
+
+    async def __anext__(self) -> dict[str, Any]:
+        """Get the next message from the stream.
+
+        Returns:
+            dict: The next message from the server.
+
+        Raises:
+            StopAsyncIteration: When the stream is closed.
+        """
+        msg = await self.recv()
+        if msg is None:
+            raise StopAsyncIteration
+        return msg
+
+    async def recv(self) -> dict[str, Any] | None:
+        """Receive a message from the server.
+
+        Returns:
+            dict or None: The message data, or None if the connection is closed.
+                Message types include:
+                - "audio": Contains "audio" (decoded bytes), "start_s", "stop_s"
+                    and optionally "stream_id" fields.
+                - "text": Contains "text", "start_s", "stop_s" and optionally
+                    "stream_id" fields with the transcribed (optionally
+                    translated) text.
+                - "end_of_stream": The request is complete.
+                - "error": Error message from the server (raises RuntimeError).
+
+        Raises:
+            RuntimeError: If the connection is not open or server returns an error.
+
+        Example:
+            ```python
+            msg = await s2s.recv()
+            if msg["type"] == "audio":
+                audio_data = msg["audio"]
+            elif msg["type"] == "text":
+                print(msg["text"])
+            ```
+        """
+        if self._ws is None:
+            raise RuntimeError("Connection not open")
+        while True:
+            msg = await self._ws.receive()
+            if msg.type == aiohttp.WSMsgType.CLOSE:
+                return None
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
