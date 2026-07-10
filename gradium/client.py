@@ -114,6 +114,9 @@ class GradiumClient:
         *,
         base_url: str = "https://api.gradium.ai/api/",
         api_key: str | None = None,
+        tts_route: str = "speech/tts",
+        stt_route: str = "speech/asr",
+        s2s_route: str = "speech/s2s",
     ):
         """Initialize the Gradium client.
 
@@ -122,6 +125,11 @@ class GradiumClient:
                 Automatically adds protocol (http/https) if missing.
             api_key: API key for authentication. If not provided, reads from the
                 GRADIUM_API_KEY environment variable.
+            tts_route: WebSocket route for text-to-speech, resolved against
+                ``base_url``. Override (e.g. with ``""``) for deployments that
+                serve TTS at a different path or at the base URL itself.
+            stt_route: WebSocket route for speech-to-text.
+            s2s_route: WebSocket route for speech-to-speech.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -144,6 +152,10 @@ class GradiumClient:
                 "Missing api-key as cli or as env (GRADIUM_API_KEY)"
             )
         self._api_key = api_key
+
+        self._tts_route = tts_route
+        self._stt_route = stt_route
+        self._s2s_route = s2s_route
 
     @property
     def headers(self) -> dict:
@@ -341,7 +353,9 @@ class GradiumClient:
             RuntimeError: If server doesn't send expected "ready" message.
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.tts_stream(self, setup, text)
+        return await speech.tts_stream(
+            self, setup, text, tts_endpoint=self._tts_route
+        )
 
     def tts_realtime(self, **kwargs) -> "stream.Tts":
         """Create a real-time TTS WebSocket connection.
@@ -354,6 +368,7 @@ class GradiumClient:
             **kwargs: Additional arguments for TTS setup.
         """
 
+        kwargs.setdefault("route", self._tts_route)
         return stream.Tts(self, **kwargs)
 
     def stt_realtime(self, **kwargs) -> "stream.Stt":
@@ -367,6 +382,7 @@ class GradiumClient:
             **kwargs: Additional arguments for STT setup.
         """
 
+        kwargs.setdefault("route", self._stt_route)
         return stream.Stt(self, **kwargs)
 
     def s2s_realtime(self, **kwargs) -> "stream.S2s":
@@ -382,6 +398,7 @@ class GradiumClient:
                 output_format, voice_id, json_config, etc.).
         """
 
+        kwargs.setdefault("route", self._s2s_route)
         return stream.S2s(self, **kwargs)
 
     async def tts(
@@ -416,7 +433,9 @@ class GradiumClient:
         Raises:
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.tts(self, setup, text)
+        return await speech.tts(
+            self, setup, text, tts_endpoint=self._tts_route
+        )
 
     async def stt_stream(
         self,
@@ -457,7 +476,9 @@ class GradiumClient:
             ValueError: If audio format is invalid.
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.stt_stream(self, setup, audio)
+        return await speech.stt_stream(
+            self, setup, audio, stt_endpoint=self._stt_route
+        )
 
     async def stt(
         self,
@@ -504,7 +525,9 @@ class GradiumClient:
             ValueError: If audio format is invalid or sample_rate mismatch.
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.stt(self, setup, audio, sample_rate)
+        return await speech.stt(
+            self, setup, audio, sample_rate, stt_endpoint=self._stt_route
+        )
 
     async def s2s_stream(
         self,
@@ -547,7 +570,9 @@ class GradiumClient:
             ValueError: If audio format is invalid.
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.s2s_stream(self, setup, audio)
+        return await speech.s2s_stream(
+            self, setup, audio, s2s_endpoint=self._s2s_route
+        )
 
     async def s2s(
         self,
@@ -593,7 +618,9 @@ class GradiumClient:
             ValueError: If audio format is invalid or sample_rate mismatch.
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.s2s(self, setup, audio, sample_rate)
+        return await speech.s2s(
+            self, setup, audio, sample_rate, s2s_endpoint=self._s2s_route
+        )
 
     async def credits(self) -> dict:
         """Get current credit balance information.

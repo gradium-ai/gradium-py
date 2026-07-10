@@ -308,6 +308,7 @@ async def tts(
     client: "gradium_client.GradiumClient",
     setup: TTSSetup,
     text: str | list[str] | AsyncGenerator,
+    tts_endpoint: str = "speech/tts",
 ) -> TTSResult:
     """Buffered Text-to-Speech synthesis.
 
@@ -320,12 +321,13 @@ async def tts(
         setup: TTS configuration (TTSSetup TypedDict).
         text: Text to synthesize. Can be a string, list of strings, or
             async generator of strings.
+        tts_endpoint: WebSocket route for the TTS endpoint.
 
     Returns:
         TTSResult containing complete audio data and metadata.
     """
     chunks = []
-    stream = await tts_stream(client, setup, text)
+    stream = await tts_stream(client, setup, text, tts_endpoint=tts_endpoint)
     async for chunk in stream.iter_bytes():
         chunks.append(chunk)
     raw_data = b"".join(chunks)
@@ -495,6 +497,7 @@ async def stt(
     setup: STTSetup,
     audio: bytes | np.ndarray | AsyncGenerator[bytes],
     sample_rate: int | None = None,
+    stt_endpoint: str = "speech/asr",
 ) -> STTResult:
     """Buffered Speech-to-Text transcription.
 
@@ -511,6 +514,7 @@ async def stt(
             - AsyncGenerator[bytes]: Stream of audio chunks
         sample_rate: Sample rate in Hz. Required for numpy arrays (must be 24000),
             not supported for bytes input.
+        stt_endpoint: WebSocket route for the STT endpoint.
 
     Returns:
         STTResult containing transcribed text and metadata.
@@ -555,7 +559,9 @@ async def stt(
             )
         bytes_stream = audio
 
-    stream = await stt_stream(client, setup, bytes_stream)
+    stream = await stt_stream(
+        client, setup, bytes_stream, stt_endpoint=stt_endpoint
+    )
     all_texts = []
     async for text in stream.iter_text():
         all_texts.append(text)
@@ -815,6 +821,7 @@ async def s2s(
     setup: S2SSetup,
     audio: bytes | np.ndarray | AsyncGenerator[bytes],
     sample_rate: int | None = None,
+    s2s_endpoint: str = "speech/s2s",
 ) -> S2SResult:
     """Buffered Speech-to-Speech conversion.
 
@@ -832,6 +839,7 @@ async def s2s(
             - AsyncGenerator[bytes]: Stream of audio chunks
         sample_rate: Sample rate in Hz. Required for numpy arrays (must be
             24000), not supported for bytes input.
+        s2s_endpoint: WebSocket route for the S2S endpoint.
 
     Returns:
         S2SResult containing the output audio, transcription and metadata.
@@ -875,7 +883,9 @@ async def s2s(
             )
         bytes_stream = audio
 
-    stream = await s2s_stream(client, setup, bytes_stream)
+    stream = await s2s_stream(
+        client, setup, bytes_stream, s2s_endpoint=s2s_endpoint
+    )
     chunks = []
     async for chunk in stream.iter_audio():
         chunks.append(chunk)
