@@ -1,0 +1,80 @@
+name: Publish to PyPI
+
+# Publishes the `gradium` package to PyPI whenever a GitHub Release is
+# published. Uses PyPI Trusted Publishing (OIDC) so no long-lived API token
+# needs to be stored as a secret.
+#
+# One-time setup on PyPI (https://pypi.org/manage/account/publishing/):
+#   - Project name:      gradium
+#   - Owner:             gradium-ai
+#   - Repository name:   gradium-py
+#   - Workflow name:     CI.yml
+#   - Environment name:  pypi
+#
+# Release flow:
+#   1. Bump the version in gradium/version.py.
+#   2. Create a GitHub Release tagged v<version> (e.g. v0.6.2).
+#   3. This workflow builds the sdist + wheel and uploads them to PyPI.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Verify version matches release tag
+        if: github.event_name == 'release'
+        run: |
+          pkg_version="$(uv run python -c 'import gradium.version as v; print(v.__version__)')"
+          tag="${GITHUB_REF_NAME#v}"
+          echo "Package version: $pkg_version"
+          echo "Release tag:     $tag"
+          if [ "$pkg_version" != "$tag" ]; then
+            echo "::error::Version in gradium/version.py ($pkg_version) does not match release tag ($tag)."
+            exit 1
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/gradium/
+    permissions:
+      id-token: write # required for Trusted Publishing (OIDC)
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
