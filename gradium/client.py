@@ -125,11 +125,9 @@ class GradiumClient:
                 Automatically adds protocol (http/https) if missing.
             api_key: API key for authentication. If not provided, reads from the
                 GRADIUM_API_KEY environment variable.
-            tts_route: WebSocket route for text-to-speech, resolved against
-                ``base_url``. Override (e.g. with ``""``) for deployments that
-                serve TTS at a different path or at the base URL itself.
-            stt_route: WebSocket route for speech-to-text.
-            s2s_route: WebSocket route for speech-to-speech.
+            tts_route: WebSocket route for text-to-speech
+            stt_route: WebSocket route for speech-to-text
+            s2s_route: WebSocket route for speech-to-speech
 
         Raises:
             ValueError: If no API key is provided or found in environment.
