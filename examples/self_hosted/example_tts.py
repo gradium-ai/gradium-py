@@ -40,7 +40,7 @@ async def _run(args: argparse.Namespace) -> None:
     client = SelfHostedTTSClient(
         base_url=args.base_url, api_key=args.api_key, tts_route=""
     )
-    setup = {"voice": args.voice, "output_format": args.output_format}
+    setup = {"voice_id": args.voice, "output_format": args.output_format}
 
     stream = await client.tts_stream(setup, args.text)
     audio = b"".join([chunk async for chunk in stream.iter_bytes()])
