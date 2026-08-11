@@ -7,6 +7,7 @@ Gradium API via both HTTP and WebSocket connections.
 import asyncio
 import json
 import os
+import pathlib
 import types
 import urllib.parse
 from collections.abc import AsyncGenerator, Callable
@@ -683,7 +684,7 @@ class GradiumClient:
 
     async def voice_create(
         self,
-        audio_file: "pathlib.Path",
+        audio_file: pathlib.Path,
         *,
         name: str | None = None,
         description: str | None = None,

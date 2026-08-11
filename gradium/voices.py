@@ -56,23 +56,25 @@ async def create(
 
     form_data = aiohttp.FormData()
     content_type = f"audio/{input_format}"
-    file = open(audio_file, "rb")
-    form_data.add_field(
-        "audio_file", file, filename=audio_file.name, content_type=content_type
-    )
+    with open(audio_file, "rb") as file:
+        form_data.add_field(
+            "audio_file",
+            file,
+            filename=audio_file.name,
+            content_type=content_type,
+        )
 
-    fields = {
-        "name": name if name is not None else audio_file.name,
-        "start_s": start_s,
-        "description": description,
-        "input_format": input_format,
-    }
-    for key, value in fields.items():
-        if value is not None:
-            form_data.add_field(key, str(value))
+        fields = {
+            "name": name if name is not None else audio_file.name,
+            "start_s": start_s,
+            "description": description,
+            "input_format": input_format,
+        }
+        for key, value in fields.items():
+            if value is not None:
+                form_data.add_field(key, str(value))
 
-    result = await client.post(ROUTE, data=form_data)
-    file.close()
+        result = await client.post(ROUTE, data=form_data)
     return result
 
 

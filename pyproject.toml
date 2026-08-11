@@ -28,8 +28,8 @@ gradium = "gradium.cli:main"
 
 [project.urls]
 Homepage = "https://gradium.ai"
-Repository = "https://github.com/gradium/gradium-py"
-"Bug Tracker" = "https://github.com/gradium/gradium-py/issues"
+Repository = "https://github.com/gradium-ai/gradium-py"
+"Bug Tracker" = "https://github.com/gradium-ai/gradium-py/issues"
 Documentation = "https://docs.gradium.ai"
 
 [project.optional-dependencies]
