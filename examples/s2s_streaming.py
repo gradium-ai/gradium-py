@@ -59,6 +59,11 @@ async def main():
         type=str,
         help="Language to translate to (omit to keep the original language)",
     )
+    parser.add_argument(
+        "--voice-matching",
+        action="store_true",
+        help="Enable voice matching (default: False)",
+    )
     args = parser.parse_args()
 
     # Read and resample the input to 24kHz mono int16 PCM with sphn.
@@ -74,9 +79,12 @@ async def main():
         "voice_id": args.voice_id,
         "stt_model_name": args.stt_model_name,
         "tts_model_name": args.tts_model_name,
+        "json_config": {},
     }
     if args.target_language is not None:
-        setup["json_config"] = {"target_language": args.target_language}
+        setup["json_config"]["target_language"] = args.target_language
+    if args.voice_matching:
+        setup["json_config"]["voice_matching"] = True
 
     all_bytes = []
     all_text = []
