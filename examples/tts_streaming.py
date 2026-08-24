@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import base64
+import os
 import time
 
 from gradium import client as gradium_client
@@ -16,7 +17,11 @@ This is a test of the text to speech streaming capabilities of the Gradium API.
 async def main():
     parser = argparse.ArgumentParser(description="Test TTS WebSocket API")
     parser.add_argument("--url", default="https://api.gradium.ai/api")
-    parser.add_argument("--api-key", help="API key for authentication")
+    parser.add_argument(
+        "--api-key",
+        default=os.environ.get("GRADIUM_API_KEY"),
+        help="API key for authentication (defaults to $GRADIUM_API_KEY)",
+    )
     parser.add_argument(
         "--text", help="Text to synthesize", default=DEFAULT_TEXT
     )
@@ -28,6 +33,12 @@ async def main():
     parser.add_argument(
         "--num-runs", type=int, default=1, help="Number of runs to perform"
     )
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        help="Maximum number of sessions to run in parallel",
+    )
     parser.add_argument("--max-padding", type=int)
     parser.add_argument("--padding-between", type=int)
     parser.add_argument("--max-padding-per-token", type=int)
@@ -36,11 +47,17 @@ async def main():
     parser.add_argument("--rewrite-rules", type=str)
     args = parser.parse_args()
 
-    tasks = [run_one(args, id=i) for i in range(args.num_runs)]
+    semaphore = asyncio.Semaphore(args.parallel)
+    tasks = [run_one(args, id=i, semaphore=semaphore) for i in range(args.num_runs)]
     await asyncio.gather(*tasks)
 
 
-async def run_one(args, id: int):
+async def run_one(args, id: int, semaphore: asyncio.Semaphore):
+    async with semaphore:
+        await _run_one(args, id=id)
+
+
+async def _run_one(args, id: int):
     if args.api_key is None:
         args.api_key = "dummy"
     grc = gradium_client.GradiumClient(base_url=args.url, api_key=args.api_key)
