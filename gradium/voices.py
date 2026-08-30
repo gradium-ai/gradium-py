@@ -23,6 +23,7 @@ async def create(
     client: "gradium_client.GradiumClient",
     audio_file: pathlib.Path,
     *,
+    language: str,
     name: str | None = None,
     description: str | None = None,
     start_s: float = 0.0,
@@ -36,6 +37,8 @@ async def create(
     Args:
         client: GradiumClient instance.
         audio_file: Path to the audio file to use for the voice.
+        language: Language of the voice, one of "en", "fr", "de", "es",
+            "pt". Required: the API rejects a voice without one.
         name: Name for the new voice. Defaults to the audio filename.
         description: Optional description of the voice.
         start_s: Start time in seconds for the audio clip to use. Defaults to 0.
@@ -66,6 +69,7 @@ async def create(
 
         fields = {
             "name": name if name is not None else audio_file.name,
+            "language": language,
             "start_s": start_s,
             "description": description,
             "input_format": input_format,
@@ -109,6 +113,7 @@ async def update(
     name: str | None = None,
     description: str | None = None,
     start_s: float | None = None,
+    language: str | None = None,
 ) -> dict | None:
     """Update voice metadata.
 
@@ -121,6 +126,8 @@ async def update(
         name: New name for the voice. If None, not updated.
         description: New description. If None, not updated.
         start_s: New start time in seconds. If None, not updated.
+        language: New language, one of "en", "fr", "de", "es", "pt". If
+            None, the voice keeps the language it was created with.
 
     Returns:
         Updated voice metadata dictionary, or None if no updates were made.
@@ -128,7 +135,12 @@ async def update(
     Raises:
         aiohttp.ClientError: If the API request fails.
     """
-    data = {"name": name, "description": description, "start_s": start_s}
+    data = {
+        "name": name,
+        "description": description,
+        "start_s": start_s,
+        "language": language,
+    }
     data = {k: v for k, v in data.items() if v is not None}
     if data:
         return await client.put(

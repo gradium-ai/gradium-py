@@ -653,12 +653,18 @@ import json
 voice = await gradium.voices.create(
     client,
     audio_file="my_voice_sample.wav",
+    language="en",
     name="My Custom Voice",
     description="A voice created from my recording",
     start_s=0.0,
 )
 print(json.dumps(voice, indent=2))
 ```
+
+`language` is **required**: one of `"en"`, `"fr"`, `"de"`, `"es"`, `"pt"`.
+The clone is conditioned on it, so a request that names no language — or
+names an unsupported one — is rejected. It is matched case-insensitively
+(`"FR"` works), but there is no default.
 
 ### Update Voice
 
@@ -668,7 +674,8 @@ await gradium.voices.update(
     voice_uid="abc123def456",
     name="Updated Voice Name",
     description="Updated description",
-    start_s=1.5
+    start_s=1.5,
+    language="fr",
 )
 ```
 
