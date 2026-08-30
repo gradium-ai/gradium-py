@@ -661,10 +661,7 @@ voice = await gradium.voices.create(
 print(json.dumps(voice, indent=2))
 ```
 
-`language` is **required**: one of `"en"`, `"fr"`, `"de"`, `"es"`, `"pt"`.
-The clone is conditioned on it, so a request that names no language — or
-names an unsupported one — is rejected. It is matched case-insensitively
-(`"FR"` works), but there is no default.
+`language` is required: the voice's ISO language code.
 
 ### Update Voice
 

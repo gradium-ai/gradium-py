@@ -37,8 +37,7 @@ async def create(
     Args:
         client: GradiumClient instance.
         audio_file: Path to the audio file to use for the voice.
-        language: Language of the voice, one of "en", "fr", "de", "es",
-            "pt". Required: the API rejects a voice without one.
+        language: ISO language code of the voice (required).
         name: Name for the new voice. Defaults to the audio filename.
         description: Optional description of the voice.
         start_s: Start time in seconds for the audio clip to use. Defaults to 0.
@@ -126,8 +125,7 @@ async def update(
         name: New name for the voice. If None, not updated.
         description: New description. If None, not updated.
         start_s: New start time in seconds. If None, not updated.
-        language: New language, one of "en", "fr", "de", "es", "pt". If
-            None, the voice keeps the language it was created with.
+        language: New ISO language code. If None, not updated.
 
     Returns:
         Updated voice metadata dictionary, or None if no updates were made.
