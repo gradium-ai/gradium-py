@@ -262,19 +262,28 @@ class GradiumClient:
                 content_type = response.headers.get("Content-Type", "")
                 if "application/json" in content_type:
                     msg = await response.json()
-                    if (reason := msg.get("detail")) is not None:
+                    reason = msg.get("detail")
+                    if reason is None:
+                        reason = msg.get("error")
+                    if reason is not None:
                         response.reason = reason
                 else:
                     response.reason = await response.text()
             response.raise_for_status()
-            return await response.json() if parse_response else response
+            if parse_response:
+                return await response.json()
+            # Buffer the body before the session closes so callers can still
+            # `await response.read()` on the returned object.
+            await response.read()
+            return response
 
     async def post(self, route: str, parse: bool = True, **kwargs):
         """Make a POST request to the API.
 
         Args:
             route: API endpoint route.
-            parse: Whether to parse response as JSON.
+            parse: Whether to parse response as JSON. When False, the raw
+                response object is returned with its body already buffered.
             **kwargs: Additional arguments for the request.
 
         Returns:
@@ -686,6 +695,7 @@ class GradiumClient:
         self,
         audio_file: pathlib.Path,
         *,
+        language: str,
         name: str | None = None,
         description: str | None = None,
         start_s: float = 0.0,
@@ -699,6 +709,7 @@ class GradiumClient:
 
         Args:
             audio_file: Path to the audio file to use for voice creation.
+            language: ISO language code of the voice (required).
             name: Name for the new voice. Defaults to the audio filename.
             description: Optional description of the voice characteristics.
             start_s: Start time in seconds for the audio clip. Use this to skip
@@ -718,6 +729,7 @@ class GradiumClient:
             ...     client = GradiumClient(api_key="your-key")
             ...     voice = await client.voice_create(
             ...         audio_file=Path("speaker.wav"),
+            ...         language="en",
             ...         name="My Custom Voice",
             ...         description="A warm, friendly voice",
             ...         start_s=0.5  # Skip first 500ms
@@ -735,6 +747,7 @@ class GradiumClient:
         return await voices.create(
             self,
             audio_file,
+            language=language,
             name=name,
             description=description,
             start_s=start_s,
@@ -818,6 +831,7 @@ class GradiumClient:
         name: str | None = None,
         description: str | None = None,
         start_s: float | None = None,
+        language: str | None = None,
     ) -> dict | None:
         """Update voice metadata.
 
@@ -831,6 +845,7 @@ class GradiumClient:
                 is not updated.
             start_s: New start time in seconds for the audio clip used by this
                 voice. If None, start time is not updated.
+            language: New ISO language code. If None, language is not updated.
 
         Returns:
             Updated voice metadata dictionary if any updates were made,
@@ -859,7 +874,12 @@ class GradiumClient:
             aiohttp.ClientError: If the API request fails or voice doesn't exist.
         """
         return await voices.update(
-            self, voice_uid, name=name, description=description, start_s=start_s
+            self,
+            voice_uid,
+            name=name,
+            description=description,
+            start_s=start_s,
+            language=language,
         )
 
     async def voice_list(self) -> dict:
@@ -888,3 +908,161 @@ class GradiumClient:
             aiohttp.ClientError: If the API request fails.
         """
         return await voices.get(self)
+
+    async def voice_generate(
+        self,
+        prompt: str,
+        *,
+        language: str,
+        n_samples: int = 1,
+        wait: bool = False,
+        timeout: float = 120.0,
+        poll_interval: float = 1.0,
+    ) -> dict:
+        """Generate draft voice embeddings from a text description.
+
+        This is the first step of the voice designer flow. Each sample is a
+        draft embedding with a ``vox_emb_`` id that is computed asynchronously
+        on the server. Preview a draft with `voice_tts`, check its status
+        with `voice_embedding_get`, and turn it into a permanent voice with
+        `voice_from_embedding`. Drafts expire unless promoted.
+
+        Generation is billed per sample and fails with a 402 status when the
+        account does not have enough credits.
+
+        Args:
+            prompt: Free-text description of the wanted voice.
+            language: Language of the voice: "en", "fr", "es", "pt" or "de".
+            n_samples: Number of candidate voices to generate (1 to 5).
+            wait: If True, poll until every draft is ready and return the
+                latest status of each one.
+            timeout: Maximum time in seconds to wait when `wait` is True.
+            poll_interval: Seconds between two polls when `wait` is True.
+
+        Returns:
+            Dictionary with an ``embeddings`` list. Each entry has an
+            ``embedding_id``, a ``ready`` flag and an ``expires_at`` timestamp.
+
+        Example:
+            >>> async def design_voice():
+            ...     client = GradiumClient(api_key="your-key")
+            ...     drafts = await client.voice_generate(
+            ...         "A deep, warm male voice with a slight British accent",
+            ...         language="en",
+            ...         n_samples=3,
+            ...         wait=True,
+            ...     )
+            ...     for draft in drafts["embeddings"]:
+            ...         preview = await client.voice_tts(
+            ...             draft["embedding_id"], "Hello, this is my voice."
+            ...         )
+            ...         Path(f"{draft['embedding_id']}.wav").write_bytes(
+            ...             preview.raw_data
+            ...         )
+            ...     voice = await client.voice_from_embedding(
+            ...         drafts["embeddings"][0]["embedding_id"],
+            ...         name="Storyteller EN",
+            ...     )
+            ...     print(f"Created voice with UID: {voice['uid']}")
+
+        Raises:
+            TimeoutError: If `wait` is True and the drafts are not ready in
+                time.
+            aiohttp.ClientError: If the API request fails.
+        """
+        return await voices.generate(
+            self,
+            prompt,
+            language=language,
+            n_samples=n_samples,
+            wait=wait,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
+
+    async def voice_embedding_get(self, embedding_id: str) -> dict:
+        """Get the status of a draft voice embedding.
+
+        Args:
+            embedding_id: Draft embedding id (``vox_emb_...``) as returned by
+                `voice_generate`.
+
+        Returns:
+            Dictionary describing the embedding, including its ``ready`` flag.
+
+        Raises:
+            aiohttp.ClientError: If the API request fails, e.g. 404 when the
+                embedding does not exist or has expired.
+        """
+        return await voices.embedding_get(self, embedding_id)
+
+    async def voice_tts(
+        self,
+        embedding_id: str,
+        text: str,
+        *,
+        output_format: str = "wav",
+        model_name: str | None = None,
+        json_config: dict | str | None = None,
+    ) -> "speech.TTSResult":
+        """Preview a draft voice embedding with a one-shot TTS request.
+
+        Renders a short text with a draft produced by `voice_generate` so it
+        can be judged before being promoted. Billed as regular TTS.
+
+        Args:
+            embedding_id: Draft embedding id (``vox_emb_...``). The draft must
+                be ready, otherwise the API returns a 404.
+            text: Text to synthesize. Previews are meant to be short: the
+                API rejects text above its length limit with a 400.
+            output_format: "wav", "opus" (ogg wrapped) or "pcm".
+            model_name: Optional TTS model name, as for any TTS request.
+            json_config: Optional extra TTS configuration, dict or JSON string.
+
+        Returns:
+            TTSResult with the audio bytes in `raw_data`. The sample rate and
+            request id are not reported by this endpoint and are left to None.
+
+        Raises:
+            aiohttp.ClientError: If the API request fails, e.g. 404 when the
+                embedding is missing, expired or not ready yet.
+        """
+        return await voices.tts(
+            self,
+            embedding_id,
+            text,
+            output_format=output_format,
+            model_name=model_name,
+            json_config=json_config,
+        )
+
+    async def voice_from_embedding(
+        self,
+        embedding_id: str,
+        *,
+        name: str,
+        description: str | None = None,
+    ) -> dict:
+        """Create a permanent voice from a draft voice embedding.
+
+        Promotes a draft produced by `voice_generate` to a regular custom
+        voice that never expires and behaves like any other voice. Creating
+        the voice is free, generation was already billed.
+
+        Args:
+            embedding_id: Draft embedding id (``vox_emb_...``) to promote.
+            name: Name of the new voice.
+            description: Optional description of the voice.
+
+        Returns:
+            Dictionary containing the voice metadata, including its UID.
+
+        Raises:
+            aiohttp.ClientError: If the API request fails. The API returns a
+                409 when the custom voices quota is reached, when the
+                embedding is missing, not ready or not yours, or when a voice
+                was already created from it.
+        """
+        return await voices.from_embedding(
+            self, embedding_id, name=name, description=description
+        )
