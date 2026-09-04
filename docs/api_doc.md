@@ -682,6 +682,90 @@ await gradium.voices.update(
 await gradium.voices.delete(client, voice_uid="abc123def456")
 ```
 
+## Voice Designer
+
+Design a voice from a text description instead of an audio sample. The flow has
+three steps: generate draft embeddings from a prompt, preview the drafts with a
+short text, then promote the one you like to a permanent voice.
+
+### Generate Drafts
+
+```python
+drafts = await gradium.voices.generate(
+    client,
+    "A deep, warm male voice with a slight British accent",
+    language="en",   # en | fr | es | pt | de
+    n_samples=4,     # 1 to 5, default 1
+)
+print(drafts)
+# {"embeddings": [
+#   {"embedding_id": "vox_emb_x7Kp2mQ9aL4wRt8b", "ready": False, "expires_at": "2026-09-11T10:00:00Z"},
+#   ...
+# ]}
+```
+
+Generation is billed per sample and returns a 402 error when the account does
+not have enough credits. Each draft is a `vox_emb_...` embedding computed
+asynchronously on the server, typically within seconds. Drafts expire unless
+promoted.
+
+Poll a draft until it is ready:
+
+```python
+status = await gradium.voices.embedding_get(client, "vox_emb_x7Kp2mQ9aL4wRt8b")
+print(status["ready"])
+```
+
+Or let the client wait for all drafts with `wait=True`:
+
+```python
+drafts = await gradium.voices.generate(
+    client, "A soft, cheerful female voice", language="fr", n_samples=2,
+    wait=True, timeout=120.0,
+)
+```
+
+### Preview a Draft
+
+Render a short text with a draft embedding. The result is a `TTSResult`, as
+with `client.tts`, but only `raw_data` and `output_format` are filled in.
+
+```python
+preview = await gradium.voices.tts(
+    client,
+    "vox_emb_x7Kp2mQ9aL4wRt8b",
+    "Hello! This is what my new voice sounds like.",
+    output_format="wav",   # wav | opus | pcm
+)
+with open("preview.wav", "wb") as f:
+    f.write(preview.raw_data)
+```
+
+Previews are meant to be short and are billed as regular TTS. The API rejects
+text above its length limit with a 400 error. A 404 error means the draft is
+missing, expired or not ready yet.
+
+### Promote a Draft to a Voice
+
+```python
+voice = await gradium.voices.from_embedding(
+    client,
+    "vox_emb_x7Kp2mQ9aL4wRt8b",
+    name="Storyteller EN",
+    description="Warm narrator voice",  # optional
+)
+print(voice["uid"])
+```
+
+The new voice behaves like any other custom voice and never expires. Creating
+it is free. A 409 error means the custom voices quota is reached, the draft is
+not usable (missing, not ready or not yours), or a voice was already created
+from it.
+
+The same functions are available as `client.voice_generate`,
+`client.voice_embedding_get`, `client.voice_tts` and
+`client.voice_from_embedding`.
+
 ## Credit Management
 
 Credits are consumed based on the audio generated: **1 credit equals 1 character of TTS**.
