@@ -103,6 +103,32 @@ import numpy as np
 
 from . import client, speech
 
+# Message types that mean the connection died without the server sending a proper
+# "type": "error" text frame first (e.g. a session limit enforced by dropping the raw
+# TCP connection). Left unhandled, `receive()` returns these non-stop once the
+# connection is gone, so a caller looping on `while msg.type != TEXT: continue` spins
+# forever instead of seeing a diagnosable failure.
+_WS_ABNORMAL_CLOSE_TYPES = (
+    aiohttp.WSMsgType.ERROR,
+    aiohttp.WSMsgType.CLOSED,
+    aiohttp.WSMsgType.CLOSING,
+)
+
+
+def _raise_for_abnormal_close(
+    ws: aiohttp.ClientWebSocketResponse, msg: aiohttp.WSMessage
+) -> None:
+    """Raise a RuntimeError with whatever close diagnostics aiohttp captured.
+
+    Call this only for message types in `_WS_ABNORMAL_CLOSE_TYPES`; a clean
+    `WSMsgType.CLOSE` is not an error and should not go through here.
+    """
+    detail = ws.exception() or msg.data
+    raise RuntimeError(
+        f"WebSocket connection closed unexpectedly "
+        f"(close_code={ws.close_code}): {detail}"
+    )
+
 
 @dataclass
 class RawAudioChunk:
@@ -319,6 +345,8 @@ class Tts:
             msg = await self._ws.receive()
             if msg.type == aiohttp.WSMsgType.CLOSE:
                 return
+            if msg.type in _WS_ABNORMAL_CLOSE_TYPES:
+                _raise_for_abnormal_close(self._ws, msg)
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
@@ -598,6 +626,8 @@ class S2s:
             msg = await self._ws.receive()
             if msg.type == aiohttp.WSMsgType.CLOSE:
                 return None
+            if msg.type in _WS_ABNORMAL_CLOSE_TYPES:
+                _raise_for_abnormal_close(self._ws, msg)
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
@@ -858,6 +888,8 @@ class Stt:
             msg = await self._ws.receive()
             if msg.type == aiohttp.WSMsgType.CLOSE:
                 return None
+            if msg.type in _WS_ABNORMAL_CLOSE_TYPES:
+                _raise_for_abnormal_close(self._ws, msg)
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
