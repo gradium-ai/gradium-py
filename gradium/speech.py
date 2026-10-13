@@ -45,17 +45,29 @@ class TTSSetup(TypedDict, total=False):
         model_name: TTS model to use. Defaults to "default".
         voice: Voice profile to use. Defaults to "default". Can be a name or None.
         voice_id: Specific voice UID to use instead of voice name.
+        voice_emb: Base64-encoded custom voice embedding.
+        additional_voice_ids: Voice UIDs for additional audio streams.
+        additional_voice_embs: Base64-encoded embeddings for additional streams.
+        pronunciation_id: Stored pronunciation dictionary to apply.
         output_format: Audio output format (e.g., "wav", "pcm"). Defaults to "wav".
         json_config: Additional JSON configuration for the TTS model.
+        client_req_id: Client-supplied request identifier.
+        retry_for_s: Optional worker connection retry window, in seconds.
+        close_ws_on_eos: Close the realtime socket after end-of-stream.
     """
 
     model_name: str = "default"
     voice: str | None = None
     voice_id: str | None = None
+    voice_emb: str | None = None
+    additional_voice_ids: list[str]
+    additional_voice_embs: list[str]
     pronunciation_id: str | None = None
     output_format: str = "wav"
     json_config: Any | None = None
     client_req_id: str | None = None
+    retry_for_s: float | None = None
+    close_ws_on_eos: bool = True
 
 
 class STTSetup(TypedDict, total=False):
@@ -65,12 +77,19 @@ class STTSetup(TypedDict, total=False):
         model_name: STT model to use. Defaults to "default".
         input_format: Audio input format (e.g., "wav", "pcm"). Defaults to "wav".
         json_config: Additional JSON configuration for the STT model.
+        keyword_boost_id: Stored keyword boost set to apply.
+        client_req_id: Client-supplied request identifier.
+        retry_for_s: Optional worker connection retry window, in seconds.
+        close_ws_on_eos: Close the realtime socket after end-of-stream.
     """
 
     model_name: str = "default"
     input_format: str = "wav"
     json_config: Any | None = None
     client_req_id: str | None = None
+    keyword_boost_id: str | None = None
+    retry_for_s: float | None = None
+    close_ws_on_eos: bool = True
 
 
 class S2SSetup(TypedDict, total=False):
