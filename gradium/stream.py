@@ -266,13 +266,16 @@ class Tts:
         """
         if self._ws is None:
             raise RuntimeError("Connection not open")
-        msg = await self._ws.receive()
-        if msg.type != aiohttp.WSMsgType.TEXT:
-            raise RuntimeError(f"Unexpected message type: {msg.type}")
-        data = json.loads(msg.data)
-        if data.get("type") != "ready":
-            raise RuntimeError(f"Expected ready message, got: {data}")
-        return data
+        while True:
+            msg = await self._ws.receive()
+            if msg.type != aiohttp.WSMsgType.TEXT:
+                raise RuntimeError(f"Unexpected message type: {msg.type}")
+            data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
+            if data.get("type") != "ready":
+                raise RuntimeError(f"Expected ready message, got: {data}")
+            return data
 
     def __aiter__(self):
         """Return self as async iterator."""
@@ -322,6 +325,8 @@ class Tts:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
@@ -540,13 +545,16 @@ class S2s:
         """
         if self._ws is None:
             raise RuntimeError("Connection not open")
-        msg = await self._ws.receive()
-        if msg.type != aiohttp.WSMsgType.TEXT:
-            raise RuntimeError(f"Unexpected message type: {msg.type}")
-        data = json.loads(msg.data)
-        if data.get("type") != "ready":
-            raise RuntimeError(f"Expected ready message, got: {data}")
-        return data
+        while True:
+            msg = await self._ws.receive()
+            if msg.type != aiohttp.WSMsgType.TEXT:
+                raise RuntimeError(f"Unexpected message type: {msg.type}")
+            data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
+            if data.get("type") != "ready":
+                raise RuntimeError(f"Expected ready message, got: {data}")
+            return data
 
     def __aiter__(self):
         """Return self as async iterator."""
@@ -601,6 +609,8 @@ class S2s:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
@@ -801,13 +811,16 @@ class Stt:
         """
         if self._ws is None:
             raise RuntimeError("Connection not open")
-        msg = await self._ws.receive()
-        if msg.type != aiohttp.WSMsgType.TEXT:
-            raise RuntimeError(f"Unexpected message type: {msg.type}")
-        data = json.loads(msg.data)
-        if data.get("type") != "ready":
-            raise RuntimeError(f"Expected ready message, got: {data}")
-        return data
+        while True:
+            msg = await self._ws.receive()
+            if msg.type != aiohttp.WSMsgType.TEXT:
+                raise RuntimeError(f"Unexpected message type: {msg.type}")
+            data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
+            if data.get("type") != "ready":
+                raise RuntimeError(f"Expected ready message, got: {data}")
+            return data
 
     def __aiter__(self):
         """Return self as async iterator."""
@@ -861,6 +874,8 @@ class Stt:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
+            if client.handle_log(data):
+                continue
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
