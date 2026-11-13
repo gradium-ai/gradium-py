@@ -54,6 +54,10 @@ class TTSSetup(TypedDict, total=False):
         client_req_id: Client-supplied request identifier.
         retry_for_s: Optional worker connection retry window, in seconds.
         close_ws_on_eos: Close the realtime socket after end-of-stream.
+        log_level: Lowest level of server log messages to receive ("debug",
+            "info", "warning" or "error"), e.g. warnings about the setup.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"
@@ -68,6 +72,7 @@ class TTSSetup(TypedDict, total=False):
     client_req_id: str | None = None
     retry_for_s: float | None = None
     close_ws_on_eos: bool = True
+    log_level: str | None = None
 
 
 class STTSetup(TypedDict, total=False):
@@ -81,6 +86,10 @@ class STTSetup(TypedDict, total=False):
         client_req_id: Client-supplied request identifier.
         retry_for_s: Optional worker connection retry window, in seconds.
         close_ws_on_eos: Close the realtime socket after end-of-stream.
+        log_level: Lowest level of server log messages to receive ("debug",
+            "info", "warning" or "error"), e.g. warnings about the setup.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"
@@ -90,6 +99,7 @@ class STTSetup(TypedDict, total=False):
     keyword_boost_id: str | None = None
     retry_for_s: float | None = None
     close_ws_on_eos: bool = True
+    log_level: str | None = None
 
 
 class S2SSetup(TypedDict, total=False):
@@ -116,6 +126,10 @@ class S2SSetup(TypedDict, total=False):
         client_req_id: Client supplied identifier used for multiplexing.
         close_ws_on_eos: Whether the server closes the socket after sending its
             end_of_stream. Defaults to True.
+        log_level: Lowest level of server log messages to receive ("debug",
+            "info", "warning" or "error"), e.g. warnings about the setup.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"
@@ -127,6 +141,7 @@ class S2SSetup(TypedDict, total=False):
     json_config: Any | None = None
     client_req_id: str | None = None
     close_ws_on_eos: bool | None = None
+    log_level: str | None = None
 
 
 @dataclass

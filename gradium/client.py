@@ -6,6 +6,7 @@ Gradium API via both HTTP and WebSocket connections.
 
 import asyncio
 import json
+import logging
 import os
 import pathlib
 import types
@@ -17,6 +18,27 @@ import aiohttp
 import numpy as np
 
 from . import speech, usages, version, voices, stream
+
+logger = logging.getLogger("gradium")
+
+
+def handle_log(msg: dict[str, Any]) -> bool:
+    """Send a server `log` message to the `gradium` logger.
+
+    The server sends these, e.g. setup warnings, only when the setup message
+    asks for them with `log_level`. They are logged at their own level. The
+    realtime streams also return them from `recv()`; the other helpers do not.
+
+    Returns:
+        True when `msg` was a log message.
+    """
+    if msg.get("type") != "log":
+        return False
+    level = logging.getLevelName(str(msg.get("level", "")).upper())
+    if not isinstance(level, int):
+        level = logging.WARNING
+    logger.log(level, "server: %s", msg.get("message"))
+    return True
 
 SOURCE = f"python-client/{version.__version__}"
 
@@ -69,6 +91,8 @@ async def receive(
     async for msg in ws:
         if msg.type == aiohttp.WSMsgType.TEXT:
             chunk = json.loads(msg.data)
+            if handle_log(chunk):
+                continue
             chunk = map_fn(chunk) if map_fn is not None else chunk
             if chunk is None:
                 continue
