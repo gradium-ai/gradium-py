@@ -26,8 +26,9 @@ def handle_log(msg: dict[str, Any]) -> bool:
     """Send a server `log` message to the `gradium` logger.
 
     The server sends these, e.g. setup warnings, only when the setup message
-    asks for them with `log_level`. They are logged at their own level. The
-    realtime streams also return them from `recv()`; the other helpers do not.
+    asks for them with `log_level`. Each one reaches the application once: the
+    realtime streams return it from `recv()` without logging it, and the other
+    helpers, which return no messages, log it here at its own level.
 
     Returns:
         True when `msg` was a log message.
@@ -39,6 +40,7 @@ def handle_log(msg: dict[str, Any]) -> bool:
         level = logging.WARNING
     logger.log(level, "server: %s", msg.get("message"))
     return True
+
 
 SOURCE = f"python-client/{version.__version__}"
 
@@ -465,9 +467,7 @@ class GradiumClient:
         Raises:
             aiohttp.ClientError: If the API request fails.
         """
-        return await speech.tts(
-            self, setup, text, tts_endpoint=self._tts_route
-        )
+        return await speech.tts(self, setup, text, tts_endpoint=self._tts_route)
 
     async def stt_stream(
         self,
