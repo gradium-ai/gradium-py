@@ -56,7 +56,8 @@ class TTSSetup(TypedDict, total=False):
         close_ws_on_eos: Close the realtime socket after end-of-stream.
         log_level: Lowest level of server log messages to receive ("debug",
             "info", "warning" or "error"), e.g. warnings about the setup.
-            They go to the `gradium` logger. Unset, the server sends none.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"
@@ -87,7 +88,8 @@ class STTSetup(TypedDict, total=False):
         close_ws_on_eos: Close the realtime socket after end-of-stream.
         log_level: Lowest level of server log messages to receive ("debug",
             "info", "warning" or "error"), e.g. warnings about the setup.
-            They go to the `gradium` logger. Unset, the server sends none.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"
@@ -126,7 +128,8 @@ class S2SSetup(TypedDict, total=False):
             end_of_stream. Defaults to True.
         log_level: Lowest level of server log messages to receive ("debug",
             "info", "warning" or "error"), e.g. warnings about the setup.
-            They go to the `gradium` logger. Unset, the server sends none.
+            They go to the `gradium` logger, and the realtime streams also
+            return them. Unset, the server sends none.
     """
 
     model_name: str = "default"

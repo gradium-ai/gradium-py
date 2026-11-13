@@ -84,17 +84,15 @@ def test_handle_log_leaves_other_messages_alone(caplog):
     assert _logged(caplog) == []
 
 
-@pytest.mark.parametrize(
-    "cls",
-    [stream.Tts, stream.Stt, stream.S2s],
-)
-async def test_streams_skip_log_messages(caplog, cls):
-    """A log before or after `ready` reaches neither wait_for_ready nor recv."""
+@pytest.mark.parametrize("cls", [stream.Tts, stream.Stt, stream.S2s])
+async def test_realtime_streams_log_and_return_log_messages(caplog, cls):
+    """wait_for_ready skips a log; recv returns it. Both log it."""
     caplog.set_level(logging.DEBUG, logger="gradium")
     s = cls(client=None)
     s._ws = _FakeWs([LOG, READY, LOG, STEP])
 
     assert await s.wait_for_ready() == READY
+    assert await s.recv() == LOG
     assert await s.recv() == STEP
     assert await s.recv() is None
     assert len(_logged(caplog)) == 2

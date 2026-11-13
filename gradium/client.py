@@ -26,8 +26,8 @@ def handle_log(msg: dict[str, Any]) -> bool:
     """Send a server `log` message to the `gradium` logger.
 
     The server sends these, e.g. setup warnings, only when the setup message
-    asks for them with `log_level`. They are logged at their own level and
-    are not part of the stream's messages.
+    asks for them with `log_level`. They are logged at their own level. The
+    realtime streams also return them from `recv()`; the other helpers do not.
 
     Returns:
         True when `msg` was a log message.
