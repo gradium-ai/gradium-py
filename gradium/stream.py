@@ -304,8 +304,8 @@ class Tts:
                 - "audio": Contains "audio" (bytes), "start_s", "stop_s" fields
                 - "text": Contains "text" field with the generated text
                 - "log": Server log line with "level" and "message" fields, sent
-                  when the setup asks for it with "log_level". Also written
-                  to the `gradium` logger.
+                  when the setup asks for it with "log_level". It is
+                  returned to the caller and not logged.
                 - "error": Error message from the server (raises RuntimeError)
 
         Raises:
@@ -328,8 +328,6 @@ class Tts:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
-            # A server log is logged, and returned like any other message.
-            client.handle_log(data)
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
@@ -612,8 +610,6 @@ class S2s:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
-            # A server log is logged, and returned like any other message.
-            client.handle_log(data)
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
@@ -854,8 +850,8 @@ class Stt:
                     VAD steps occur every 80ms. Use msg["vad"][2]["inactivity_prob"]
                     to determine the probability that the turn is finished.
                 - "log": Server log line with "level" and "message" fields, sent
-                  when the setup asks for it with "log_level". Also written
-                  to the `gradium` logger.
+                  when the setup asks for it with "log_level". It is
+                  returned to the caller and not logged.
                 - "error": Error message from the server (raises RuntimeError)
                 - "flushed": Indicates that previous audio has been flushed (contains "flush_id")
 
@@ -880,8 +876,6 @@ class Stt:
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             data = json.loads(msg.data)
-            # A server log is logged, and returned like any other message.
-            client.handle_log(data)
             msg_type = data["type"]
             if msg_type == "error":
                 raise RuntimeError(f"Error from server: {data}")
